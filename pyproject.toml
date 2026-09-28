@@ -1,0 +1,45 @@
+[project]
+name = "copilot-job-gil"
+version = "0.1.0"
+description = "Assistente de busca e análise estratégica de vagas"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "alembic>=1.20.0",
+    "fastapi>=0.141.1",
+    "google-genai>=2.25.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "pydantic-settings>=2.15.0",
+    "python-jobspy>=1.1.82",
+    "python-multipart>=0.0.32",
+    "sqlalchemy[asyncio]>=2.1.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    # interno do google-genai no Python 3.14; não é do nosso código
+    "ignore:.*_UnionGenericAlias.*:DeprecationWarning:google.genai.*",
+]
+markers = [
+    "unit: regras de negócio isoladas, com mocks",
+    "regression: deduplicação e contratos entre camadas",
+    "e2e: endpoints FastAPI de ponta a ponta",
+]

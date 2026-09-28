@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+*.db
+*.db-wal
+*.db-shm
+profile_data/profile.json
+.idea/
