@@ -1,0 +1,43 @@
+{% macro badge(text, classes="bg-slate-100 text-slate-700") -%}
+  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ classes }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro verdict_classes(verdict) -%}
+  {{ {
+    "strong": "bg-emerald-100 text-emerald-800",
+    "good": "bg-sky-100 text-sky-800",
+    "weak": "bg-amber-100 text-amber-800",
+    "poor": "bg-rose-100 text-rose-800",
+  }[verdict] }}
+{%- endmacro %}
+
+{% macro match_badge(match) -%}
+  {% if match %}
+    {{ badge(match.score|round|int ~ "% · " ~ verdict_label(match.verdict), verdict_classes(match.verdict)) }}
+    {% if match.is_current == false %}{{ badge("perfil mudou", "bg-slate-200 text-slate-600") }}{% endif %}
+    {% if not match.used_llm %}{{ badge("sem LLM", "bg-slate-200 text-slate-600") }}{% endif %}
+  {% endif %}
+{%- endmacro %}
+
+{% macro job_meta(job) -%}
+  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+    <span class="font-medium text-slate-700">{{ job.company }}</span>
+    {% if job.location %}<span>· {{ job.location }}</span>{% endif %}
+    <span>· {{ work_mode_label(job.work_mode) }}</span>
+    {% if job.date_posted %}<span>· {{ job.date_posted|br_date }}</span>{% endif %}
+    {% if job.salary %}
+      <span>· {{ job.salary.currency }} {{ job.salary.min_amount|money }}–{{ job.salary.max_amount|money }}</span>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro listing_links(job) -%}
+  <div class="flex flex-wrap gap-1.5">
+    <a href="{{ job.url|safe_url }}" target="_blank" rel="noopener noreferrer"
+       class="text-xs text-sky-700 underline-offset-2 hover:underline">{{ site_label(job.source) }} ↗</a>
+    {% for listing in job.other_listings %}
+      <a href="{{ listing.url|safe_url }}" target="_blank" rel="noopener noreferrer"
+         class="text-xs text-sky-700 underline-offset-2 hover:underline">{{ site_label(listing.source) }} ↗</a>
+    {% endfor %}
+  </div>
+{%- endmacro %}
