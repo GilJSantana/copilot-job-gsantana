@@ -1,0 +1,11 @@
+{
+  "full_name": "Seu Nome",
+  "headline": "Backend Developer Python",
+  "summary": "Resumo profissional em 2-3 frases: experiência, domínio e o que você busca.",
+  "years_of_experience": 5,
+  "skills": ["Python", "FastAPI", "SQLAlchemy", "Docker", "PostgreSQL"],
+  "target_roles": ["Backend Engineer", "Python Developer"],
+  "preferred_locations": ["São Paulo", "Remoto"],
+  "preferred_work_modes": ["remote", "hybrid"],
+  "languages": ["Português", "Inglês"]
+}
