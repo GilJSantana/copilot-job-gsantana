@@ -31,3 +31,36 @@ class ProfileError(DomainError):
 
 class OutreachGenerationError(DomainError):
     """O LLM não produziu uma mensagem que respeite as regras do canal."""
+
+
+class CVIntegrityError(DomainError):
+    """O CV otimizado contém algo que não existe no histórico profissional."""
+
+    def __init__(self, violations: list[str]) -> None:
+        # args guarda a lista (não a mensagem pronta): exceções recriadas a partir
+        # de args, como em cópias e serialização, continuam íntegras
+        super().__init__(list(violations))
+        self.violations = list(violations)
+
+    def __str__(self) -> str:
+        return "CV otimizado diverge do histórico: " + "; ".join(self.violations)
+
+
+class CVRenderError(DomainError):
+    """Falha ao gerar o PDF do CV (template inválido, fonte ausente...)."""
+
+
+class CVVersionNotFoundError(DomainError):
+    """A versão de CV pedida não existe."""
+
+
+class ProfileBlockNotFoundError(DomainError):
+    """O bloco de perfil referenciado não existe."""
+
+
+class RateLimitExceededError(DomainError):
+    """O limite de requisições por hora às plataformas de vagas foi atingido."""
+
+
+class SourcesDisabledError(DomainError):
+    """Nenhuma das plataformas pedidas está ativa nas configurações."""
