@@ -1,0 +1,36 @@
+{% extends "settings/_layout.html" %}
+{% from "components/ui/button.html" import button %}
+{% from "components/ui/card.html" import card %}
+{% from "components/ui/numeric.html" import numeric_control %}
+{% from "components/ui/switch.html" import switch %}
+{% from "components/search/platform_chips.html" import platform_chips %}
+
+{% block title %}Conectores · Configurações{% endblock %}
+
+{% block settings_content %}
+
+  {% call card("scrapers", "python-jobspy", "Plataformas consultadas e o ritmo das requisições. Ritmo agressivo leva a bloqueios (HTTP 429), principalmente no LinkedIn.") %}
+    <form method="post" action="/settings/scrapers" class="space-y-6">
+      <div>
+        {{ platform_chips(all_sites, scrapers.active_sites, name="active_sites", legend="Plataformas ativas") }}
+        <p class="mt-2 text-xs text-body dark:text-bodydark">Só as plataformas ativas aparecem na busca.</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {{ numeric_control("max_requests_per_hour", "Requisições por hora", scrapers.max_requests_per_hour, min=0, max=10000, step=1,
+                           hint="Cada plataforma consultada conta uma. 0 = sem limite.") }}
+        {{ numeric_control("min_delay_seconds", "Delay mínimo", scrapers.min_delay_seconds, min=0, max=600, step="0.5", suffix="s",
+                           hint="Pausa entre requisições: sorteada entre o mínimo e o máximo.") }}
+        {{ numeric_control("max_delay_seconds", "Delay máximo", scrapers.max_delay_seconds, min=0, max=600, step="0.5", suffix="s") }}
+      </div>
+
+      <div>
+        {{ switch("linkedin_fetch_description", "Buscar a descrição completa no LinkedIn", checked=scrapers.linkedin_fetch_description) }}
+        <p class="mt-2 text-xs text-body dark:text-bodydark">Mais lento, mas essencial para um match preciso: sem a descrição, o LLM só vê o título.</p>
+      </div>
+
+      <div class="flex justify-end">{{ button("Salvar conectores", type="submit") }}</div>
+    </form>
+  {% endcall %}
+
+{% endblock %}

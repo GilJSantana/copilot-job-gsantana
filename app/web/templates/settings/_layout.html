@@ -1,0 +1,48 @@
+{#
+  Layout do painel de configurações: abas + mensagens de sucesso/erro.
+  A página filha define `settings_content` e recebe `tab` ("profile" | "llm" | "scrapers").
+#}
+{% set theme_aware = true %}
+{% set nav_active = "settings" %}
+{% set container_classes = "max-w-5xl py-8" %}
+{% extends "base.html" %}
+{% from "components/ui/icons.html" import icon %}
+
+{% set TABS = [
+  ("profile", "Perfil Profissional", "/settings/profile", "user"),
+  ("llm", "Provedores de IA & Prompts", "/settings/llm", "cpu"),
+  ("scrapers", "Conectores & Rate Limits", "/settings/scrapers", "plug"),
+] %}
+
+{% block title %}Configurações{% endblock %}
+
+{% block content %}
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold text-black dark:text-white">Painel de Controle</h1>
+    <p class="mt-1 text-sm text-body dark:text-bodydark">Perfil, provedores de IA e conectores. Tudo fica salvo no banco de dados e vale sem reiniciar a aplicação.</p>
+  </div>
+
+  <nav aria-label="Seções das configurações" class="mb-6 flex overflow-x-auto border-b border-stroke dark:border-strokedark">
+    {% for key, label, href, tab_icon in TABS %}
+      <a href="{{ href }}" {% if tab == key %}aria-current="page"{% endif %}
+         class="-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition {{ 'border-primary text-primary dark:text-primary-light' if tab == key else 'border-transparent text-body hover:text-primary dark:text-bodydark dark:hover:text-white' }}">
+        {{ icon(tab_icon, "size-4") }}{{ label }}
+      </a>
+    {% endfor %}
+  </nav>
+
+  {% if saved %}
+    <div role="status" class="mb-6 rounded-sm border-l-4 border-meta-3 bg-meta-3/10 px-4 py-3 text-sm font-medium text-meta-3">{{ saved }}</div>
+  {% endif %}
+  {% if error %}
+    <div role="alert" class="mb-6 flex items-start gap-2 rounded-sm border-l-4 border-meta-1 bg-meta-1/10 px-4 py-3 text-sm text-meta-1">
+      {{ icon("alert", "size-5") }}<span>Não foi possível salvar — {{ error }}</span>
+    </div>
+  {% endif %}
+
+  {% block settings_content %}{% endblock %}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', path='js/settings.js') }}" defer></script>
+{% endblock %}

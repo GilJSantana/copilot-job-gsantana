@@ -92,8 +92,8 @@ def test_job_detail_and_match_flow(client, llm):
     assert response.headers["location"] == f"/jobs/{key}"
 
     after = client.get(f"/jobs/{key}")
-    assert "94%" in after.text
-    assert "Match forte" in after.text
+    assert "78%" in after.text
+    assert "Bom match" in after.text
     assert "Kubernetes" in after.text
     assert "Reanalisar" in after.text
 
@@ -107,14 +107,13 @@ def test_match_form_is_protected_against_other_origins(client, llm):
     assert llm.calls == []
 
 
-def test_job_detail_without_profile_explains_and_hides_button(client, profile_path):
-    submit_search(client)
-    profile_path.unlink()
+def test_job_detail_without_profile_explains_and_hides_button(blank_client):
+    submit_search(blank_client)
 
-    response = client.get(f"/jobs/{first_job_key(client)}")
+    response = blank_client.get(f"/jobs/{first_job_key(blank_client)}")
 
     assert response.status_code == 200
-    assert "profile.example.json" in response.text
+    assert "/settings/profile" in response.text
     assert "Analisar match" not in response.text
 
 

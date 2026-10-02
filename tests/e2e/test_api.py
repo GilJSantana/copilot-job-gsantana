@@ -1,9 +1,7 @@
-import json
-
 import pytest
 
 from app.domain.exceptions import JobSourceError
-from tests.e2e.conftest import PROFILE
+from tests.e2e.conftest import PROFILE, SAME_ORIGIN, SKILLS
 
 pytestmark = pytest.mark.e2e
 
@@ -35,26 +33,21 @@ def test_returns_profile_with_fingerprint(client):
     body = client.get("/api/profile").json()
 
     assert body["full_name"] == PROFILE["full_name"]
-    assert body["skills"] == PROFILE["skills"]
+    assert body["skills"] == SKILLS
     assert len(body["fingerprint"]) == 16
 
 
-def test_missing_profile_is_a_503_with_instructions(client, profile_path):
-    profile_path.unlink()
-
-    response = client.get("/api/profile")
+def test_missing_profile_is_a_503_with_instructions(blank_client):
+    response = blank_client.get("/api/profile")
 
     assert response.status_code == 503
-    assert "profile.example.json" in response.json()["detail"]
+    assert "/settings/profile" in response.json()["detail"]
 
 
-def test_invalid_profile_names_the_bad_field(client, profile_path):
-    profile_path.write_text(json.dumps(PROFILE | {"skils": ["typo"], "years_of_experience": -1}))
+def test_legacy_files_are_no_longer_read_after_the_import(client, profile_path):
+    profile_path.unlink()
 
-    detail = client.get("/api/profile").json()["detail"]
-
-    assert "years_of_experience" in detail
-    assert "skils" in detail
+    assert client.get("/api/profile").status_code == 200
 
 
 # --- Busca -------------------------------------------------------------------------
@@ -148,8 +141,8 @@ def test_match_scores_and_is_cached(client, llm):
 
     assert first.status_code == 200
     body = first.json()
-    # 3/3 skills citadas -> 100; 0.4*100 + 0.6*90 = 94
-    assert (body["score"], body["verdict"], body["is_current"]) == (94.0, "strong", True)
+    # 3/5 skills citadas -> 60; 0.4*60 + 0.6*90 = 78
+    assert (body["score"], body["verdict"], body["is_current"]) == (78.0, "good", True)
     assert body["gaps"] == ["Kubernetes"]
     assert second.json() == body
     assert len(llm.calls) == 1
@@ -164,26 +157,25 @@ def test_force_recomputes_the_match(client, llm):
     assert len(llm.calls) == 2
 
 
-def test_editing_the_profile_marks_matches_as_outdated_and_recomputes(client, llm, profile_path):
+def test_editing_the_profile_marks_matches_as_outdated_and_recomputes(client, llm):
     key = search(client).json()["jobs"][0]["key"]
     client.post(f"/api/jobs/{key}/match")
 
-    profile_path.write_text(json.dumps(PROFILE | {"skills": ["Python", "Go"]}))
+    client.post("/settings/profile/blocks", data={"category": "SKILL", "title": "Go"}, headers=SAME_ORIGIN)
 
     listed = client.get("/api/jobs").json()[0]
     assert listed["match"]["is_current"] is False
 
     rematched = client.post(f"/api/jobs/{key}/match").json()
     assert rematched["is_current"] is True
-    assert rematched["matched_skills"] == ["Python"]
+    assert rematched["matched_skills"] == ["Python", "FastAPI", "Docker"]
     assert len(llm.calls) == 2
 
 
-def test_match_requires_a_profile(client, profile_path):
-    key = search(client).json()["jobs"][0]["key"]
-    profile_path.unlink()
+def test_match_requires_a_profile(blank_client):
+    key = search(blank_client).json()["jobs"][0]["key"]
 
-    assert client.post(f"/api/jobs/{key}/match").status_code == 503
+    assert blank_client.post(f"/api/jobs/{key}/match").status_code == 503
 
 
 def test_match_for_unknown_job_is_404(client):

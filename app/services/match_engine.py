@@ -17,14 +17,16 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.domain.exceptions import LLMProviderError, LLMResponseFormatError
-from app.domain.interfaces import ILLMProvider
+from app.domain.interfaces import ILLMProvider, IPromptTemplateStore
 from app.domain.models import (
     CandidateProfile,
     JobPosting,
     LLMAssessment,
     MatchResult,
+    PromptName,
     normalize_text,
 )
+from app.services.prompts import resolve_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +53,17 @@ class MatchWeights:
 
 
 class MatchEngine:
-    def __init__(self, llm: ILLMProvider, weights: MatchWeights | None = None) -> None:
+    def __init__(
+        self,
+        llm: ILLMProvider,
+        weights: MatchWeights | None = None,
+        *,
+        prompts: IPromptTemplateStore | None = None,
+    ) -> None:
         self._llm = llm
         self._weights = weights or MatchWeights()
+        # SYSTEM_PROMPT é o padrão; o painel pode substituí-lo (MATCH_ENGINE_PROMPT)
+        self._prompts = prompts
 
     async def evaluate(self, profile: CandidateProfile, job: JobPosting) -> MatchResult:
         matched = self.matched_skills(profile, job)
@@ -93,8 +103,9 @@ class MatchEngine:
 
     async def _assess(self, profile: CandidateProfile, job: JobPosting) -> LLMAssessment | None:
         try:
+            system_prompt = await resolve_prompt(self._prompts, PromptName.MATCH_ENGINE, SYSTEM_PROMPT)
             payload = await self._llm.generate_json(
-                self._build_prompt(profile, job), system_prompt=SYSTEM_PROMPT
+                self._build_prompt(profile, job), system_prompt=system_prompt
             )
             return self._parse_assessment(payload)
         except LLMProviderError as exc:
@@ -110,7 +121,10 @@ class MatchEngine:
             f"Experiência: {profile.years_of_experience} anos\n"
             f"Skills: {', '.join(profile.skills)}\n"
             f"Cargos-alvo: {', '.join(profile.target_roles)}\n"
-            f"Resumo: {profile.summary}\n\n"
+            f"Resumo: {profile.summary}\n"
+            + "".join(f"Experiência: {line}\n" for line in profile.experiences)
+            + "".join(f"Conquista: {line}\n" for line in profile.achievements)
+            + "\n"
             "## Vaga\n"
             f"Título: {job.title}\n"
             f"Empresa: {job.company}\n"

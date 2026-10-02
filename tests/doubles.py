@@ -6,15 +6,30 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.domain.exceptions import JobNotFoundError
+from app.domain.exceptions import JobNotFoundError, ProfileBlockNotFoundError
 from app.domain.interfaces import (
+    ICVVersionStore,
+    IFileStorage,
     IJobRepository,
     IJobStore,
     ILLMProvider,
     IMatchResultStore,
     IOutreachStore,
+    IProfileBlockStore,
+    IPromptTemplateStore,
+    ISystemConfigStore,
 )
-from app.domain.models import JobPosting, JobSearchCriteria, MatchResult, OutreachMessage
+from app.domain.models import (
+    CVVersion,
+    JobPosting,
+    JobSearchCriteria,
+    MatchResult,
+    OutreachMessage,
+    ProfileBlock,
+    ProfileBlockCategory,
+    PromptName,
+    PromptTemplate,
+)
 
 
 class MockLLMAdapter(ILLMProvider):
@@ -171,3 +186,129 @@ class ScriptedLLMAdapter(MockLLMAdapter):
     ) -> dict[str, Any]:
         self.calls.append({"prompt": prompt, "system_prompt": system_prompt})
         return copy.deepcopy(self._responses.pop(0))
+
+
+class InMemoryCVVersionStore(ICVVersionStore):
+    """Versões de CV em memória com a mesma semântica do SqlAlchemyCVVersionStore
+    (garantida pelos testes de contrato em tests/regression)."""
+
+    def __init__(self, job_store: InMemoryJobStore) -> None:
+        self._job_store = job_store
+        self.versions: list[CVVersion] = []
+        self._now = datetime(2026, 9, 1, tzinfo=UTC)
+
+    async def save(self, version: CVVersion) -> CVVersion:
+        if version.job_key not in self._job_store.jobs:
+            raise JobNotFoundError(f"vaga {version.job_key} não está armazenada")
+        self._now += timedelta(seconds=1)
+        saved = replace(version, created_at=self._now)
+        self.versions.append(saved)
+        return saved
+
+    async def get(self, version_id: str) -> CVVersion | None:
+        return next(
+            (v for v in self.versions if v.id == version_id and v.job_key in self._job_store.jobs),
+            None,
+        )
+
+    async def list_for_job(self, job_key: str) -> list[CVVersion]:
+        if job_key not in self._job_store.jobs:  # espelha o ON DELETE CASCADE
+            return []
+        return [v for v in reversed(self.versions) if v.job_key == job_key]
+
+    async def referenced_files(self) -> set[str]:
+        return {v.pdf_path for v in self.versions if v.job_key in self._job_store.jobs}
+
+
+class InMemoryFileStorage(IFileStorage):
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+
+    async def save(self, name: str, data: bytes) -> str:
+        if name in self.files:
+            raise FileExistsError(name)
+        self.files[name] = data
+        return name
+
+    async def read(self, reference: str) -> bytes:
+        try:
+            return self.files[reference]
+        except KeyError:
+            raise FileNotFoundError(reference) from None
+
+    async def delete(self, reference: str) -> None:
+        self.files.pop(reference, None)
+
+    async def list_names(self) -> list[str]:
+        return sorted(self.files)
+
+
+class InMemorySystemConfigStore(ISystemConfigStore):
+    """Mesma semântica do SqlAlchemySystemConfigStore (testes de contrato em tests/regression)."""
+
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+        self.descriptions: dict[str, str] = {}
+
+    async def get_many(self, prefix: str) -> dict[str, str]:
+        return {key: value for key, value in self.values.items() if key.startswith(prefix)}
+
+    async def set_many(self, values: dict[str, str], descriptions: dict[str, str] | None = None) -> None:
+        self.values.update(values)
+        self.descriptions.update({k: v for k, v in (descriptions or {}).items() if k in values})
+
+
+class InMemoryProfileBlockStore(IProfileBlockStore):
+    """Mesma semântica do SqlAlchemyProfileBlockStore (testes de contrato em tests/regression)."""
+
+    def __init__(self) -> None:
+        self.blocks: dict[int, ProfileBlock] = {}
+        self._next_id = 1
+        self._now = datetime(2026, 9, 1, tzinfo=UTC)
+
+    async def list_all(self, category: ProfileBlockCategory | None = None) -> list[ProfileBlock]:
+        return [b for _, b in sorted(self.blocks.items()) if category is None or b.category is category]
+
+    async def get(self, block_id: int) -> ProfileBlock | None:
+        return self.blocks.get(block_id)
+
+    async def save(self, block: ProfileBlock) -> ProfileBlock:
+        if block.id is not None and block.id not in self.blocks:
+            raise ProfileBlockNotFoundError(f"bloco {block.id} não encontrado")
+        self._now += timedelta(seconds=1)
+        block_id = block.id if block.id is not None else self._take_id()
+        saved = replace(block, id=block_id, updated_at=self._now)
+        self.blocks[block_id] = saved
+        return saved
+
+    async def delete(self, block_id: int) -> None:
+        if self.blocks.pop(block_id, None) is None:
+            raise ProfileBlockNotFoundError(f"bloco {block_id} não encontrado")
+
+    async def add_many(self, blocks: list[ProfileBlock]) -> None:
+        for block in blocks:
+            await self.save(replace(block, id=None))
+
+    def _take_id(self) -> int:
+        self._next_id += 1
+        return self._next_id - 1
+
+
+class InMemoryPromptTemplateStore(IPromptTemplateStore):
+    """Mesma semântica do SqlAlchemyPromptTemplateStore (testes de contrato em tests/regression)."""
+
+    def __init__(self) -> None:
+        self.templates: dict[PromptName, PromptTemplate] = {}
+        self._now = datetime(2026, 9, 1, tzinfo=UTC)
+
+    async def get(self, name: PromptName) -> PromptTemplate | None:
+        return self.templates.get(name)
+
+    async def save(self, template: PromptTemplate) -> PromptTemplate:
+        self._now += timedelta(seconds=1)
+        saved = replace(template, updated_at=self._now)
+        self.templates[template.name] = saved
+        return saved
+
+    async def delete(self, name: PromptName) -> None:
+        self.templates.pop(name, None)

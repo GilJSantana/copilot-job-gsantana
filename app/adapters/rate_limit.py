@@ -1,6 +1,7 @@
 """Controle de ritmo para chamadas a fontes externas sensíveis a bloqueio."""
 
 import asyncio
+import math
 import random
 import time
 from collections.abc import Awaitable, Callable
@@ -58,3 +59,34 @@ class RandomDelayThrottle:
     ) -> None:
         self._last_finished_at = self._clock()
         self._lock.release()
+
+
+class HourlyRequestBudget:
+    """Janela deslizante de uma hora: quantas requisições ainda cabem no limite.
+
+    O limite vem a cada chamada (e não no construtor) porque é configurável
+    pelo painel: mudar o valor não zera a contagem das requisições recentes.
+    """
+
+    WINDOW_SECONDS = 3600.0
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._timestamps: list[float] = []
+
+    def try_acquire(self, count: int, limit: int) -> float | None:
+        """Registra `count` requisições se couberem em `limit` (0 = sem limite).
+
+        Devolve None quando registrou ou, se não couberem, quantos segundos faltam
+        para liberar espaço suficiente (nada é registrado nesse caso).
+        """
+        now = self._clock()
+        self._timestamps = [t for t in self._timestamps if now - t < self.WINDOW_SECONDS]
+        if limit and len(self._timestamps) + count > limit:
+            if count > limit:
+                return math.inf
+            # a mais antiga que precisa sair da janela para caber `count` novas
+            oldest_needed = self._timestamps[len(self._timestamps) + count - limit - 1]
+            return self.WINDOW_SECONDS - (now - oldest_needed)
+        self._timestamps.extend([now] * count)
+        return None

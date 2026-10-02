@@ -1,0 +1,99 @@
+{% extends "settings/_layout.html" %}
+{% from "components/ui/button.html" import button %}
+{% from "components/ui/badge.html" import badge %}
+{% from "components/ui/card.html" import card %}
+{% from "components/ui/icons.html" import icon %}
+{% from "components/ui/input.html" import text_input, textarea %}
+
+{% block title %}Provedores de IA · Configurações{% endblock %}
+
+{% set PROVIDER_INFO = {
+  "gemini": ("Google Gemini", "Na nuvem: rápido, exige API key e consome cota."),
+  "ollama": ("Ollama", "Local: gratuito e privado, depende do hardware da máquina."),
+} %}
+{% set PROMPT_INFO = {
+  "MATCH_ENGINE_PROMPT": ("MatchEngine — análise de aderência", "Nota de 0 a 100, pontos fortes e lacunas de cada vaga."),
+  "CV_TAILOR_PROMPT": ("CVTailorService — otimização do CV", "Seleciona e reescreve o histórico para a vaga, sem inventar fatos."),
+} %}
+
+{% block settings_content %}
+
+  {% call card("provider", "Provedor de LLM padrão", "Usado no match, nas mensagens para recrutadores e no CV Tailor. A troca vale na próxima chamada, sem reiniciar.") %}
+    <form method="post" action="/settings/llm" class="space-y-6" autocomplete="off">
+      <fieldset>
+        <legend class="mb-2.5 block text-sm font-medium text-black dark:text-white">Provedor</legend>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {% for provider in providers %}
+            {% set name, description = PROVIDER_INFO[provider.value] %}
+            <label class="flex cursor-pointer items-start gap-3 rounded-sm border border-stroke p-4 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5 dark:border-strokedark dark:has-[:checked]:border-primary dark:has-[:checked]:bg-primary/10">
+              <input type="radio" name="provider" value="{{ provider.value }}" class="mt-1 accent-primary"
+                     {% if llm.provider == provider.value %}checked{% endif %}>
+              <span>
+                <span class="block font-medium text-black dark:text-white">{{ name }}</span>
+                <span class="block text-sm text-body dark:text-bodydark">{{ description }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <fieldset data-provider-fields="gemini" class="space-y-4 transition">
+          <legend class="mb-2.5 flex items-center gap-2 text-sm font-semibold text-black dark:text-white">{{ icon("key", "size-4") }}Google Gemini</legend>
+          {{ text_input("gemini_api_key", "API key", "", "Chave salva: " ~ masked_key ~ " — em branco mantém" if masked_key else "Cole a chave do Google AI Studio",
+                        type="password", attrs={"autocomplete": "new-password", "spellcheck": "false"},
+                        hint="Guardada no banco local (system_configs). Nunca é exibida de volta.") }}
+          {% if masked_key %}
+            <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-body dark:text-bodydark">
+              <input type="checkbox" name="clear_gemini_api_key" value="true" class="accent-meta-1">
+              Remover a chave salva ({{ masked_key }})
+            </label>
+          {% endif %}
+          {{ text_input("gemini_model", "Modelo", llm.gemini_model, "ex.: gemini-2.5-flash", attrs={"required": true, "maxlength": 100}) }}
+        </fieldset>
+
+        <fieldset data-provider-fields="ollama" class="space-y-4 transition">
+          <legend class="mb-2.5 flex items-center gap-2 text-sm font-semibold text-black dark:text-white">{{ icon("cpu", "size-4") }}Ollama</legend>
+          {{ text_input("ollama_base_url", "URL do servidor", llm.ollama_base_url, "http://localhost:11434", type="url", attrs={"required": true, "maxlength": 300}) }}
+          {{ text_input("ollama_model", "Modelo", llm.ollama_model, "ex.: llama3.1", attrs={"required": true, "maxlength": 100}) }}
+        </fieldset>
+      </div>
+
+      <div class="flex justify-end">{{ button("Salvar provedor", type="submit") }}</div>
+    </form>
+  {% endcall %}
+
+  {% call card("prompts", "Prompts base", "Instruções de sistema enviadas ao LLM. Mantenha o formato JSON de resposta descrito no fim de cada prompt: é ele que a aplicação interpreta.") %}
+    <div class="space-y-8">
+      {% for prompt in prompts %}
+        {% set title, description = PROMPT_INFO[prompt.name.value] %}
+        <div id="{{ prompt.name.value }}" class="scroll-mt-24">
+          <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 class="font-medium text-black dark:text-white">{{ title }}</h3>
+              <p class="text-sm text-body dark:text-bodydark">{{ description }}</p>
+            </div>
+            {% if prompt.is_custom %}
+              {{ badge("Personalizado · " ~ prompt.updated_at|br_datetime, "primary") }}
+            {% else %}
+              {{ badge("Padrão do sistema", "neutral") }}
+            {% endif %}
+          </div>
+          <form method="post" action="/settings/llm/prompts/{{ prompt.name.value }}" class="space-y-3">
+            {{ textarea("template_text", "Prompt " ~ prompt.name.value, prompt_drafts.get(prompt.name, prompt.text),
+                        rows=14, id="prompt-" ~ prompt.name.value, classes="font-mono text-sm leading-relaxed",
+                        attrs={"required": true, "spellcheck": "false"}) }}
+            <div class="flex justify-end">{{ button("Salvar prompt", type="submit", size="sm") }}</div>
+          </form>
+          {% if prompt.is_custom %}
+            <form method="post" action="/settings/llm/prompts/{{ prompt.name.value }}/reset" class="mt-2 flex justify-end"
+                  data-confirm="Descartar a personalização e voltar ao prompt padrão?">
+              {{ button("Restaurar padrão", "ghost", "sm", type="submit", icon="rotate") }}
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endcall %}
+
+{% endblock %}
