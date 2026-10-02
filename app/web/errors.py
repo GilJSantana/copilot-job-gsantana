@@ -7,19 +7,35 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.domain.exceptions import (
+    CVIntegrityError,
+    CVRenderError,
+    CVVersionNotFoundError,
     DomainError,
     JobNotFoundError,
     JobSourceError,
     LLMProviderError,
     LLMResponseFormatError,
     OutreachGenerationError,
+    ProfileBlockNotFoundError,
     ProfileError,
+    RateLimitExceededError,
+    SourcesDisabledError,
 )
 
 logger = logging.getLogger(__name__)
 
 _STATUS: dict[type[DomainError], int] = {
     JobNotFoundError: 404,
+    CVVersionNotFoundError: 404,
+    ProfileBlockNotFoundError: 404,
+    # a busca pediu só plataformas desativadas no painel
+    SourcesDisabledError: 422,
+    # limite de requisições por hora configurado no painel
+    RateLimitExceededError: 429,
+    # o LLM não produziu um CV fiel ao histórico nem após correção
+    CVIntegrityError: 502,
+    # template ou compilação do PDF: problema da aplicação
+    CVRenderError: 500,
     # a fonte externa falhou: não é erro do cliente nem nosso
     JobSourceError: 502,
     # a aplicação não funciona até o perfil ser configurado

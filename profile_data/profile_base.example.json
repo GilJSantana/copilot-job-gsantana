@@ -1,0 +1,54 @@
+{
+  "language": "pt",
+  "full_name": "Seu Nome",
+  "headline": "Engenheiro de Software Backend | Python",
+  "contact": {
+    "email": "voce@email.com",
+    "phone": "+55 11 90000-0000",
+    "location": "São Paulo, SP",
+    "linkedin": "linkedin.com/in/seu-perfil",
+    "github": "github.com/seu-usuario",
+    "website": ""
+  },
+  "summary": "Resumo completo da sua carreira. Cada CV gerado usa um recorte deste texto.",
+  "skills": ["Python", "FastAPI", "Django", "PostgreSQL", "Docker", "Kubernetes", "AWS"],
+  "experiences": [
+    {
+      "id": "empresa-atual",
+      "title": "Engenheiro de Software Sênior",
+      "company": "Empresa Atual",
+      "location": "São Paulo, SP",
+      "start": "2022-03",
+      "end": null,
+      "highlights": [
+        "Escreva TODAS as conquistas desta experiência, com números reais: o CV Tailor escolhe e reescreve as mais relevantes para cada vaga, mas nunca cria métricas que não estejam aqui.",
+        "Ex.: Reduzi a latência p95 da API de pagamentos de 800 ms para 120 ms migrando para FastAPI."
+      ],
+      "technologies": ["Python", "FastAPI", "Kafka", "AWS"]
+    },
+    {
+      "id": "empresa-anterior",
+      "title": "Desenvolvedor Backend",
+      "company": "Empresa Anterior",
+      "location": "Remoto",
+      "start": "2019-01",
+      "end": "2022-02",
+      "highlights": [
+        "Desenvolvi APIs REST em Django e PostgreSQL para rastreamento de entregas."
+      ],
+      "technologies": ["Django", "PostgreSQL", "Docker"]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bacharelado em Ciência da Computação",
+      "institution": "Universidade",
+      "start": "2014-02",
+      "end": "2018-12"
+    }
+  ],
+  "certifications": [
+    { "name": "AWS Certified Developer – Associate", "issuer": "Amazon Web Services", "year": 2023 }
+  ],
+  "languages": ["Português (nativo)", "Inglês (avançado)"]
+}

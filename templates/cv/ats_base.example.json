@@ -1,0 +1,52 @@
+{
+  "lang": "pt",
+  "name": "Ana Souza",
+  "headline": "Engenheira de Software Backend | Python",
+  "contact": {
+    "email": "ana.souza@email.com",
+    "phone": "+55 11 90000-0000",
+    "location": "São Paulo, SP",
+    "linkedin": "linkedin.com/in/anasouza",
+    "github": "github.com/anasouza"
+  },
+  "summary": "Engenheira de software com 6 anos de experiência em backend Python, APIs de alto volume e sistemas distribuídos. Atuação em produto, observabilidade e otimização de custos de infraestrutura.",
+  "skills": ["Python", "FastAPI", "Django", "PostgreSQL", "Docker", "Kubernetes", "AWS", "Kafka", "CI/CD", "Testes automatizados"],
+  "experiences": [
+    {
+      "title": "Engenheira de Software Sênior",
+      "company": "Empresa Exemplo Pagamentos",
+      "location": "São Paulo, SP (híbrido)",
+      "start": "2022-03",
+      "end": null,
+      "highlights": [
+        "Liderei a migração de um monólito Django para serviços FastAPI, reduzindo a latência p95 de 800 ms para 120 ms.",
+        "Implementei processamento de eventos com Kafka para 2 milhões de transações por dia.",
+        "Conduzi a adoção de testes de contrato entre 6 serviços, reduzindo incidentes de integração em 40%."
+      ]
+    },
+    {
+      "title": "Desenvolvedora Backend",
+      "company": "Startup Exemplo Logística",
+      "location": "Remoto",
+      "start": "2019-01",
+      "end": "2022-02",
+      "highlights": [
+        "Desenvolvi APIs REST em Django e PostgreSQL para rastreamento de entregas.",
+        "Automatizei o pipeline de CI/CD com GitHub Actions e Docker, reduzindo o tempo de deploy de 1 hora para 10 minutos."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bacharelado em Ciência da Computação",
+      "institution": "Universidade Exemplo",
+      "start": "2014-02",
+      "end": "2018-12"
+    }
+  ],
+  "certifications": [
+    { "name": "AWS Certified Developer – Associate", "issuer": "Amazon Web Services", "year": 2023 }
+  ],
+  "languages": ["Português (nativo)", "Inglês (avançado)"],
+  "keywords": ["Python", "FastAPI", "Kafka", "AWS"]
+}

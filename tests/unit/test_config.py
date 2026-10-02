@@ -17,6 +17,7 @@ _ENV_VARS = (
     "OLLAMA_MODEL",
     "JOBSPY_MIN_DELAY_SECONDS",
     "JOBSPY_MAX_DELAY_SECONDS",
+    "CV_LLM_TIMEOUT_SECONDS",
 )
 
 
@@ -102,3 +103,25 @@ def test_factory_builds_gemini_adapter(monkeypatch):
 
     assert isinstance(provider, GeminiAdapter)
     assert provider.name == "gemini:gemini-2.5-flash"
+
+
+
+async def test_factory_accepts_a_timeout_override():
+    settings = load_settings()
+
+    default = build_llm_provider(settings)
+    for_cv = build_llm_provider(settings, timeout_seconds=settings.cv_llm_timeout_seconds)
+
+    assert default._client.timeout.read == 120.0
+    assert for_cv._client.timeout.read == 600.0
+    await default.aclose()
+    await for_cv.aclose()
+
+
+def test_cv_timeout_is_configurable_and_validated(monkeypatch):
+    monkeypatch.setenv("CV_LLM_TIMEOUT_SECONDS", "900")
+    assert load_settings().cv_llm_timeout_seconds == 900.0
+
+    monkeypatch.setenv("CV_LLM_TIMEOUT_SECONDS", "0")
+    with pytest.raises(ValidationError):
+        load_settings()

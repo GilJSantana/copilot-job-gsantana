@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from app.domain.models import (
     CandidateProfile,
+    CareerHistory,
+    CVVersion,
     JobPosting,
     JobSearchCriteria,
     JobSite,
@@ -230,4 +232,65 @@ class OutreachOut(BaseModel):
             provider=message.provider,
             created_at=message.created_at,
             is_current=message.profile_fingerprint == profile.fingerprint if profile else None,
+        )
+
+
+class CVTailorIn(BaseModel):
+    language: OutreachLanguage = OutreachLanguage.PT
+
+
+class TailoredExperienceOut(BaseModel):
+    experience_id: str
+    title: str
+    company: str
+    highlights: list[str]
+
+
+class CVVersionOut(BaseModel):
+    id: str
+    job_key: str
+    language: OutreachLanguage
+    headline: str
+    summary: str
+    skills: list[str]
+    experiences: list[TailoredExperienceOut]
+    matched_keywords: list[str]
+    template: str
+    provider: str
+    created_at: datetime | None
+    pdf_url: str
+    download_name: str
+    # False quando o histórico mudou depois desta versão; None se ele não pôde ser lido
+    is_current: bool | None = None
+
+    @classmethod
+    def from_domain(cls, version: CVVersion, history: CareerHistory | None = None) -> "CVVersionOut":
+        cv = version.content
+        experiences = []
+        for tailored in cv.experiences:
+            original = history.experience(tailored.experience_id) if history else None
+            experiences.append(
+                TailoredExperienceOut(
+                    experience_id=tailored.experience_id,
+                    # a experiência pode ter sido removida do histórico depois da versão
+                    title=original.title if original else "",
+                    company=original.company if original else "",
+                    highlights=list(tailored.highlights),
+                )
+            )
+        return cls(
+            id=version.id,
+            job_key=version.job_key,
+            language=cv.language,
+            headline=cv.headline,
+            summary=cv.summary,
+            skills=list(cv.skills),
+            experiences=experiences,
+            matched_keywords=list(cv.matched_keywords),
+            template=version.template,
+            provider=version.provider,
+            created_at=version.created_at,
+            pdf_url=f"/api/cvs/{version.id}/pdf",
+            download_name=version.download_name,
+            is_current=version.is_current_for(history) if history else None,
         )

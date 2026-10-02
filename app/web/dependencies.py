@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from fastapi import Depends, HTTPException, Request
 
 from app.domain.exceptions import JobNotFoundError, ProfileError
-from app.domain.models import CandidateProfile, JobPosting, MatchResult
+from app.domain.models import CandidateProfile, CareerHistory, JobPosting, MatchResult
 from app.web.container import Container
 
 
@@ -62,3 +62,11 @@ def reject_cross_origin(request: Request) -> None:
     origin = request.headers.get("origin")
     if origin is not None and urlsplit(origin).netloc != request.url.netloc:
         raise HTTPException(status_code=403, detail="Requisição de outra origem bloqueada")
+
+
+async def career_history_or_none(container: Container) -> CareerHistory | None:
+    """Para telas que funcionam sem histórico: só não comparam as versões de CV."""
+    try:
+        return await container.career_histories.get()
+    except ProfileError:
+        return None

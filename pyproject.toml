@@ -15,12 +15,14 @@ dependencies = [
     "python-jobspy>=1.1.82",
     "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.1.1",
+    "typst>=0.15.0",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
+    "pypdf>=6.19.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
 ]

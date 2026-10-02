@@ -7,12 +7,14 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select, text
 
-from app.domain.models import JobPosting, JobSite, MatchResult
+from app.domain.models import CVVersion, JobPosting, JobSite, MatchResult
+from app.repositories.cv_version_store import SqlAlchemyCVVersionStore
 from app.repositories.database import create_engine, create_session_factory
 from app.repositories.job_store import SqlAlchemyJobStore
 from app.repositories.match_store import SqlAlchemyMatchResultStore
 from app.repositories.migrate import upgrade_to_head
-from app.repositories.orm import JobRow, MatchResultRow
+from app.repositories.orm import CVVersionRow, JobRow, MatchResultRow
+from tests.cv_builders import tailored_cv
 
 pytestmark = pytest.mark.regression
 
@@ -128,3 +130,23 @@ async def test_concurrent_match_saves_keep_one_row(two_connections):
     async with two_connections[0]() as session:
         rows = (await session.scalars(select(MatchResultRow))).all()
     assert len(rows) == 1
+
+
+async def test_cv_versions_are_deleted_with_their_job(session_factory):
+    await SqlAlchemyJobStore(session_factory).save_many([JOB])
+    await SqlAlchemyCVVersionStore(session_factory).save(
+        CVVersion(
+            id="a" * 32,
+            job_key=JOB.dedup_key,
+            content=tailored_cv(),
+            history_fingerprint="f" * 16,
+            template="ats_base",
+            pdf_path="cv.pdf",
+        )
+    )
+
+    async with session_factory.begin() as session:
+        await session.execute(text("DELETE FROM jobs"))
+
+    async with session_factory() as session:
+        assert await session.scalar(select(CVVersionRow)) is None

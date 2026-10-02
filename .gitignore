@@ -7,3 +7,6 @@ __pycache__/
 *.db-shm
 profile_data/profile.json
 .idea/
+profile_data/profile_base.json
+output_cvs/*
+!output_cvs/.gitkeep

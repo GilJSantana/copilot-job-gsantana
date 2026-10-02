@@ -2,7 +2,19 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Integer, MetaData, String, Text, text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -84,3 +96,66 @@ class OutreachRow(Base):
     provider: Mapped[str] = mapped_column(String(100), default="")
     profile_fingerprint: Mapped[str] = mapped_column(String(16), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CVVersionRow(Base):
+    __tablename__ = "cv_versions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    job_key: Mapped[str] = mapped_column(
+        ForeignKey("jobs.dedup_key", ondelete="CASCADE"), index=True
+    )
+    language: Mapped[str] = mapped_column(String(5))
+    headline: Mapped[str] = mapped_column(String(300))
+    summary: Mapped[str] = mapped_column(Text)
+    skills: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # [{"experience_id": "...", "highlights": ["..."]}], na ordem do CV
+    experiences: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    matched_keywords: Mapped[list[str]] = mapped_column(JSON, default=list)
+    history_fingerprint: Mapped[str] = mapped_column(String(16))
+    template: Mapped[str] = mapped_column(String(100))
+    pdf_path: Mapped[str] = mapped_column(String(300))
+    provider: Mapped[str] = mapped_column(String(100), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- Painel de configurações ---
+
+
+class SystemConfigRow(Base):
+    """Parâmetros globais do sistema e integrações."""
+
+    __tablename__ = "system_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(100), unique=True)
+    value: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProfileCoreRow(Base):
+    """Blocos de experiência, competências e métricas do perfil."""
+
+    __tablename__ = "profile_core"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # "EXPERIENCE", "SKILL", "METRIC"
+    category: Mapped[str] = mapped_column(String(50), index=True)
+    title: Mapped[str] = mapped_column(String(100))
+    content: Mapped[str] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PromptTemplateRow(Base):
+    """Prompts customizados via painel."""
+
+    __tablename__ = "prompt_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # ex.: "MATCH_ENGINE_PROMPT"
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    template_text: Mapped[str] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

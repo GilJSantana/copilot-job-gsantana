@@ -2,16 +2,20 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import Response
 
 from app.web.dependencies import (
     ContainerDep,
+    career_history_or_none,
     JobDep,
     matches_for,
     profile_or_none,
     reject_cross_origin,
 )
 from app.web.schemas import (
+    CVTailorIn,
+    CVVersionOut,
     HealthOut,
     JobDetailOut,
     JobSummaryOut,
@@ -28,7 +32,7 @@ router = APIRouter(prefix="/api", tags=["api"], dependencies=[Depends(reject_cro
 
 @router.get("/health")
 async def health(container: ContainerDep) -> HealthOut:
-    return HealthOut(status="ok", llm_provider=container.llm.name)
+    return HealthOut(status="ok", llm_provider=await container.llm.current_name())
 
 
 @router.get("/profile")
@@ -109,3 +113,49 @@ async def draft_outreach(job: JobDep, body: OutreachIn, container: ContainerDep)
 async def list_outreach(job: JobDep, container: ContainerDep) -> list[OutreachOut]:
     profile = await profile_or_none(container)
     return [OutreachOut.from_domain(m, profile) for m in await container.outreach_service.history(job)]
+
+
+# ids de versão são uuid4 em hexadecimal: qualquer outra coisa é recusada antes de chegar ao banco
+VersionId = Annotated[str, Path(pattern=r"^[0-9a-f]{32}$")]
+
+
+@router.post("/jobs/{key}/cvs")
+async def tailor_cv(job: JobDep, body: CVTailorIn, container: ContainerDep) -> CVVersionOut:
+    """Gera um CV em PDF otimizado para a vaga a partir do histórico profissional.
+
+    Cada chamada cria uma nova versão. Com LLM local, pode levar alguns minutos.
+    """
+    version = await container.cv_tailor_service.tailor(job, language=body.language)
+    return CVVersionOut.from_domain(version, await career_history_or_none(container))
+
+
+@router.get("/jobs/{key}/cvs")
+async def list_cvs(job: JobDep, container: ContainerDep) -> list[CVVersionOut]:
+    history = await career_history_or_none(container)
+    return [
+        CVVersionOut.from_domain(version, history)
+        for version in await container.cv_tailor_service.versions(job)
+    ]
+
+
+@router.get("/cvs/{version_id}")
+async def get_cv(version_id: VersionId, container: ContainerDep) -> CVVersionOut:
+    version = await container.cv_tailor_service.get(version_id)
+    return CVVersionOut.from_domain(version, await career_history_or_none(container))
+
+
+@router.get("/cvs/{version_id}/pdf", response_class=Response)
+async def get_cv_pdf(version_id: VersionId, container: ContainerDep, download: bool = False) -> Response:
+    """O PDF da versão: exibido no navegador, ou baixado com `?download=true`."""
+    version, pdf = await container.cv_tailor_service.read_pdf(version_id)
+    disposition = "attachment" if download else "inline"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            # download_name só tem ASCII, letras, números, "-" e "_": seguro entre aspas
+            "Content-Disposition": f'{disposition}; filename="{version.download_name}"',
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
