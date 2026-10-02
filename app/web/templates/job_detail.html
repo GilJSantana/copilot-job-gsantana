@@ -1,45 +1,84 @@
+{% set theme_aware = true %}
+{% set nav_active = "jobs" %}
 {% extends "base.html" %}
-{% from "_macros.html" import badge, verdict_classes, job_meta, listing_links %}
+{% from "components/ui/badge.html" import badge, verdict_tone %}
+{% from "components/ui/button.html" import button %}
+{% from "components/ui/input.html" import select, text_input %}
 
 {% block title %}{{ job.title }}{% endblock %}
 
+{% macro section(id=none) -%}
+  <section {% if id %}id="{{ id }}"{% endif %}
+           class="mt-6 scroll-mt-24 rounded-sm border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark">
+    {{ caller() }}
+  </section>
+{%- endmacro %}
+
+{% macro heading(text) -%}
+  <h2 class="text-lg font-bold text-black dark:text-white">{{ text }}</h2>
+{%- endmacro %}
+
+{% macro hint(text) -%}
+  <p class="mt-1 text-sm text-body dark:text-bodydark">{{ text }}</p>
+{%- endmacro %}
+
+{% macro alert(text) -%}
+  <p role="alert" class="mt-4 rounded-sm border-l-4 border-warning bg-warning/10 px-4 py-2 text-sm text-warning">{{ text }}</p>
+{%- endmacro %}
+
+{% macro meta_line(text) -%}
+  <span class="text-xs text-body dark:text-bodydark">{{ text }}</span>
+{%- endmacro %}
+
+{% macro subheading(text) -%}
+  <h3 class="text-xs font-bold tracking-wide text-black uppercase dark:text-white">{{ text }}</h3>
+{%- endmacro %}
+
+{% set _ARTICLE = "mt-4 rounded-sm border border-stroke p-4 dark:border-strokedark" %}
+{% set _LINK = "text-primary hover:underline dark:text-primary-light" %}
+
 {% block content %}
-<a href="/" class="text-sm text-sky-700 hover:underline">← Vagas</a>
+<a href="/" class="text-sm {{ _LINK }}">← Vagas</a>
 
 <header class="mt-3">
-  <h1 class="text-xl font-semibold text-slate-900">{{ job.title }}</h1>
-  <div class="mt-1">{{ job_meta(job) }}</div>
-  <div class="mt-2">{{ listing_links(job) }}</div>
+  <h1 class="text-2xl font-bold text-black dark:text-white">{{ job.title }}</h1>
+  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-body dark:text-bodydark">
+    <span class="font-medium text-black dark:text-white">{{ job.company }}</span>
+    {% if job.location %}<span>· {{ job.location }}</span>{% endif %}
+    <span>· {{ work_mode_label(job.work_mode) }}</span>
+    {% if job.date_posted %}<span>· {{ job.date_posted|br_date }}</span>{% endif %}
+    {% if job.salary %}
+      <span>· {{ job.salary.currency }} {{ job.salary.min_amount|money }}–{{ job.salary.max_amount|money }}</span>
+    {% endif %}
+  </div>
+  <div class="mt-2 flex flex-wrap gap-3 text-sm">
+    {% for listing in [job] + job.other_listings %}
+      <a href="{{ listing.url|safe_url }}" target="_blank" rel="noopener noreferrer" class="{{ _LINK }}">{{ site_label(listing.source) }} ↗</a>
+    {% endfor %}
+  </div>
 </header>
 
-<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+{% call section() %}
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h2 class="font-semibold text-slate-900">Match com o seu perfil</h2>
+    {{ heading("Match com o seu perfil") }}
     {% if not profile_error %}
       <form method="post" action="/jobs/{{ job.key }}/match" data-busy="Analisando…">
         {% if job.match %}<input type="hidden" name="force" value="true">{% endif %}
-        <button type="submit"
-                class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-          {{ "Reanalisar" if job.match else "Analisar match" }}
-        </button>
+        {{ button("Reanalisar" if job.match else "Analisar match", "primary", "sm", type="submit") }}
       </form>
     {% endif %}
   </div>
 
-  {% if profile_error %}
-    <p role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ profile_error }}</p>
-  {% endif %}
+  {% if profile_error %}{{ alert(profile_error) }}{% endif %}
 
   {% set match = job.match %}
   {% if match %}
     <div class="mt-4 flex flex-wrap items-center gap-3">
-      <span class="text-3xl font-semibold text-slate-900">{{ match.score|round|int }}%</span>
-      {{ badge(verdict_label(match.verdict), verdict_classes(match.verdict)) }}
-      {% if match.is_current == false %}
-        {{ badge("Feito com uma versão anterior do perfil", "bg-slate-200 text-slate-700") }}
-      {% endif %}
+      <span class="text-3xl font-bold text-black dark:text-white">{{ match.score|round|int }}%</span>
+      {{ badge(verdict_label(match.verdict), verdict_tone(match.verdict), "md") }}
+      {% if match.is_current == false %}{{ badge("Feito com uma versão anterior do perfil") }}{% endif %}
     </div>
-    <p class="mt-1 text-xs text-slate-500">
+    <p class="mt-1 text-xs text-body dark:text-bodydark">
       Skills: {{ match.keyword_score|round|int }}% ·
       {% if match.used_llm %}
         LLM: {{ match.llm_score|round|int }}% ({{ match.provider }})
@@ -48,176 +87,157 @@
       {% endif %}
     </p>
 
-    {% if match.rationale %}<p class="mt-4 text-sm">{{ match.rationale }}</p>{% endif %}
+    {% if match.rationale %}<p class="mt-4 text-sm text-body dark:text-bodydark">{{ match.rationale }}</p>{% endif %}
 
-    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+    <div class="mt-5 grid gap-4 sm:grid-cols-3">
       {% for title, items, color in [
-        ("Skills encontradas", match.matched_skills, "text-slate-700"),
-        ("Pontos fortes", match.strengths, "text-emerald-800"),
-        ("Lacunas", match.gaps, "text-rose-800"),
+        ("Skills encontradas", match.matched_skills, "text-body dark:text-bodydark"),
+        ("Pontos fortes", match.strengths, "text-meta-3"),
+        ("Lacunas", match.gaps, "text-meta-1"),
       ] %}
         <div>
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ title }}</h3>
+          {{ subheading(title) }}
           <ul class="mt-1 list-inside list-disc text-sm {{ color }}">
-            {% for item in items %}<li>{{ item }}</li>{% else %}<li class="list-none text-slate-400">—</li>{% endfor %}
+            {% for item in items %}<li>{{ item }}</li>{% else %}<li class="list-none text-body dark:text-bodydark">—</li>{% endfor %}
           </ul>
         </div>
       {% endfor %}
     </div>
   {% elif not profile_error %}
-    <p class="mt-3 text-sm text-slate-500">Ainda não analisada.</p>
+    <p class="mt-3 text-sm text-body dark:text-bodydark">Ainda não analisada.</p>
   {% endif %}
-</section>
+{% endcall %}
 
-<section id="cv" class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-  <h2 class="font-semibold text-slate-900">Currículo para esta vaga</h2>
-  <p class="mt-1 text-xs text-slate-500">
-    PDF otimizado para ATS a partir do seu histórico profissional. Nada fora do histórico entra
-    no currículo; revise antes de enviar.
-  </p>
+{% call section("cv") %}
+  {{ heading("Currículo para esta vaga") }}
+  {{ hint("PDF otimizado para ATS a partir do seu histórico profissional. Nada fora do histórico entra no currículo; revise antes de enviar.") }}
 
   {% if history_error %}
-    <p role="alert" class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ history_error }}</p>
+    {{ alert(history_error) }}
   {% else %}
     <form method="post" action="/jobs/{{ job.key }}/cvs" data-busy="Gerando CV… pode levar alguns minutos"
           class="mt-4 flex flex-wrap items-end gap-3">
-      <label>
-        <span class="mb-1 block text-sm font-medium">Idioma</span>
-        <select name="language" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          {% for language in languages %}
-            <option value="{{ language.value }}">{{ language_label(language) }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <button type="submit"
-              class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-        {{ "Gerar nova versão" if cv_versions else "Gerar CV" }}
-      </button>
+      {{ select("language", "Idioma", options(languages, language_label), id="cv-language") }}
+      {{ button("Gerar nova versão" if cv_versions else "Gerar CV", "primary", "md", type="submit") }}
     </form>
   {% endif %}
 
   {% for cv in cv_versions %}
-    <article class="mt-4 rounded-lg border border-slate-200 p-4">
+    <article class="{{ _ARTICLE }}">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-1.5">
-          {{ badge(language_label(cv.language)) }}
-          {% if cv.is_current == false %}{{ badge("histórico mudou", "bg-slate-200 text-slate-600") }}{% endif %}
-          <span class="text-xs text-slate-500">{{ cv.created_at|br_datetime }} · {{ cv.provider }}</span>
+          {{ badge(language_label(cv.language), "primary") }}
+          {% if cv.is_current == false %}{{ badge("histórico mudou", "warning") }}{% endif %}
+          {{ meta_line(cv.created_at|br_datetime ~ " · " ~ cv.provider) }}
         </div>
         <div class="flex gap-2">
-          <a href="{{ cv.pdf_url }}" target="_blank" rel="noopener"
-             class="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100">Ver PDF</a>
-          <a href="{{ cv.pdf_url }}?download=true"
-             class="rounded-md bg-slate-900 px-2 py-1 text-xs text-white hover:bg-slate-700">Baixar</a>
+          {{ button("Ver PDF", "secondary", "sm", href=cv.pdf_url, attrs={"target": "_blank", "rel": "noopener"}) }}
+          {{ button("Baixar", "primary", "sm", href=cv.pdf_url ~ "?download=true") }}
         </div>
       </div>
-      <p class="mt-3 text-sm font-medium text-slate-900">{{ cv.headline }}</p>
-      <p class="mt-1 text-sm text-slate-700">{{ cv.summary }}</p>
+      <p class="mt-3 text-sm font-bold text-black dark:text-white">{{ cv.headline }}</p>
+      <p class="mt-1 text-sm text-body dark:text-bodydark">{{ cv.summary }}</p>
       {% if cv.matched_keywords %}
         <div class="mt-3">
-          <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Termos da vaga cobertos</span>
+          {{ subheading("Termos da vaga cobertos") }}
           <div class="mt-1 flex flex-wrap gap-1.5">
-            {% for keyword in cv.matched_keywords %}{{ badge(keyword, "bg-emerald-50 text-emerald-800") }}{% endfor %}
+            {% for keyword in cv.matched_keywords %}{{ badge(keyword, "success") }}{% endfor %}
           </div>
         </div>
       {% endif %}
-      <details class="mt-3 text-sm">
-        <summary class="cursor-pointer text-slate-600">Experiências e skills desta versão</summary>
-        <p class="mt-2 text-slate-700"><span class="font-medium">Skills:</span> {{ cv.skills|join(", ") }}</p>
+      <details class="mt-3 text-sm text-body dark:text-bodydark">
+        <summary class="cursor-pointer hover:text-primary">Experiências e skills desta versão</summary>
+        <p class="mt-2"><span class="font-medium text-black dark:text-white">Skills:</span> {{ cv.skills|join(", ") }}</p>
         {% for experience in cv.experiences %}
-          <p class="mt-2 font-medium text-slate-800">
+          <p class="mt-2 font-medium text-black dark:text-white">
             {{ experience.title or experience.experience_id }}{% if experience.company %} — {{ experience.company }}{% endif %}
           </p>
-          <ul class="list-inside list-disc text-slate-700">
+          <ul class="list-inside list-disc">
             {% for highlight in experience.highlights %}<li>{{ highlight }}</li>{% endfor %}
           </ul>
         {% endfor %}
       </details>
     </article>
   {% endfor %}
-</section>
+{% endcall %}
 
-<section id="outreach" class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-  <h2 class="font-semibold text-slate-900">Mensagem para recrutador</h2>
-  <p class="mt-1 text-xs text-slate-500">
+{% call section("outreach") %}
+  {{ heading("Mensagem para recrutador") }}
+  <p class="mt-1 text-sm text-body dark:text-bodydark">
     Rascunhos gerados a partir do seu perfil{% if job.match and job.match.is_current %} e dos pontos fortes do match{% endif %}.
     Revise antes de enviar.
   </p>
 
   {% if not profile_error %}
     <form method="post" action="/jobs/{{ job.key }}/outreach" data-busy="Escrevendo…"
-          class="mt-4 grid gap-3 sm:grid-cols-4">
-      <label class="sm:col-span-2">
-        <span class="mb-1 block text-sm font-medium">Canal</span>
-        <select name="channel" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          {% for channel in channels %}
-            <option value="{{ channel.value }}">{{ channel_label(channel) }} · até {{ channel.max_length }} caracteres</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span class="mb-1 block text-sm font-medium">Idioma</span>
-        <select name="language" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          {% for language in languages %}
-            <option value="{{ language.value }}">{{ language_label(language) }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span class="mb-1 block text-sm font-medium">Nome do destinatário</span>
-        <input name="recipient_name" maxlength="100" placeholder="opcional"
-               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-      </label>
+          class="mt-4 grid gap-4 sm:grid-cols-4">
+      <div class="sm:col-span-2">
+        {% set channel_options = [] %}
+        {% for channel in channels %}
+          {% set _ = channel_options.append((channel.value, channel_label(channel) ~ " · até " ~ channel.max_length ~ " caracteres")) %}
+        {% endfor %}
+        {{ select("channel", "Canal", channel_options, id="outreach-channel") }}
+      </div>
+      {{ select("language", "Idioma", options(languages, language_label), id="outreach-language") }}
+      {{ text_input("recipient_name", "Nome do destinatário", placeholder="opcional", attrs={"maxlength": "100"}, id="outreach-recipient") }}
       <div class="sm:col-span-4">
-        <button type="submit"
-                class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-          Gerar rascunho
-        </button>
+        {{ button("Gerar rascunho", "primary", "md", type="submit") }}
       </div>
     </form>
   {% endif %}
 
   {% for draft in drafts %}
-    <article class="mt-4 rounded-lg border border-slate-200 p-4">
+    <article class="{{ _ARTICLE }}">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-1.5">
-          {{ badge(channel_label(draft.channel)) }}
+          {{ badge(channel_label(draft.channel), "primary") }}
           {{ badge(language_label(draft.language)) }}
-          {% if draft.is_current == false %}{{ badge("perfil mudou", "bg-slate-200 text-slate-600") }}{% endif %}
-          <span class="text-xs text-slate-500">{{ draft.created_at|br_datetime }} · {{ draft.length }}/{{ draft.max_length }} caracteres</span>
+          {% if draft.is_current == false %}{{ badge("perfil mudou", "warning") }}{% endif %}
+          {{ meta_line(draft.created_at|br_datetime ~ " · " ~ draft.length ~ "/" ~ draft.max_length ~ " caracteres") }}
         </div>
-        <button type="button" data-copy="draft-{{ loop.index }}"
-                class="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100">
-          Copiar
-        </button>
+        {{ button("Copiar", "secondary", "sm", icon="copy", attrs={"data-copy": "draft-" ~ loop.index}) }}
       </div>
-      <div id="draft-{{ loop.index }}" class="mt-3 text-sm leading-relaxed text-slate-800">
-        {% if draft.subject %}<p class="mb-2 font-medium" data-subject>Assunto: {{ draft.subject }}</p>{% endif %}
+      <div id="draft-{{ loop.index }}" class="mt-3 text-sm leading-relaxed text-black dark:text-white">
+        {% if draft.subject %}<p class="mb-2 font-bold" data-subject>Assunto: {{ draft.subject }}</p>{% endif %}
         <p class="whitespace-pre-line" data-body>{{ draft.body }}</p>
       </div>
     </article>
   {% endfor %}
-</section>
+{% endcall %}
 
-<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-  <h2 class="font-semibold text-slate-900">Descrição</h2>
+{% call section() %}
+  {{ heading("Descrição") }}
   {% if job.skills %}
-    <div class="mt-2 flex flex-wrap gap-1.5">{% for skill in job.skills %}{{ badge(skill) }}{% endfor %}</div>
+    <div class="mt-3 flex flex-wrap gap-1.5">{% for skill in job.skills %}{{ badge(skill) }}{% endfor %}</div>
   {% endif %}
-  <div class="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ job.description or "Sem descrição." }}</div>
-</section>
+  {# Markdown da fonte limpo em blocos; o texto segue escapado pelo Jinja #}
+  <div class="mt-4 max-w-none space-y-3 text-sm leading-relaxed text-body dark:text-bodydark">
+    {% for kind, content in (job.description or "")|description_blocks %}
+      {% if kind == "h" %}
+        <h3 class="pt-2 text-base font-bold text-black dark:text-white">{{ content }}</h3>
+      {% elif kind == "ul" %}
+        <ul class="list-outside list-disc space-y-1 pl-5">{% for item in content %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% else %}
+        <p>{{ content }}</p>
+      {% endif %}
+    {% else %}
+      <p>Sem descrição.</p>
+    {% endfor %}
+  </div>
+{% endcall %}
 {% endblock %}
 
 {% block scripts %}
 <script>
   document.querySelectorAll("button[data-copy]").forEach((button) => {
+    const label = button.querySelector("[data-label]");
     button.addEventListener("click", async () => {
       const draft = document.getElementById(button.dataset.copy);
       const subject = draft.querySelector("[data-subject]");
       const body = draft.querySelector("[data-body]").innerText;
       await navigator.clipboard.writeText(subject ? `${subject.innerText}\n\n${body}` : body);
-      button.textContent = "Copiado ✓";
-      setTimeout(() => (button.textContent = "Copiar"), 2000);
+      label.textContent = "Copiado ✓";
+      setTimeout(() => (label.textContent = "Copiar"), 2000);
     });
   });
 </script>

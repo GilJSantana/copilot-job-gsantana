@@ -94,6 +94,45 @@ def job_type_label(value: str) -> str:
     return ", ".join(_JOB_TYPE_LABELS.get(part.strip(), part.strip()) for part in value.split(","))
 
 
+_MD_ESCAPE = re.compile(r"\\([\\`*_{}\[\]()#+\-.!&|>~])")
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
+_MD_BULLET = re.compile(r"^(?:[*•-]|\d+\.)\s+")
+
+
+def description_blocks(text: str) -> list[tuple[str, str | list[str]]]:
+    """Descrição em Markdown do JobSpy -> blocos ("h", texto), ("p", texto) ou ("ul", itens).
+
+    Só limpa a formatação (escapes como `mid\\-level`, `**negrito**`, espaços); o
+    texto continua sendo escapado pelo Jinja, então nada da fonte vira HTML.
+    """
+    blocks: list[tuple[str, str | list[str]]] = []
+    paragraph: list[str] = []
+
+    def flush() -> None:
+        if paragraph:
+            blocks.append(("p", " ".join(paragraph)))
+            paragraph.clear()
+
+    for raw in text.splitlines():
+        line = " ".join(_MD_ESCAPE.sub(r"\1", raw).split())
+        if not line:
+            flush()
+        elif _MD_BOLD.fullmatch(line):
+            flush()
+            blocks.append(("h", line.strip("* ").rstrip(":")))
+        elif _MD_BULLET.match(line):
+            flush()
+            item = _MD_BOLD.sub(r"\1", _MD_BULLET.sub("", line))
+            if blocks and blocks[-1][0] == "ul":
+                blocks[-1][1].append(item)  # type: ignore[union-attr]
+            else:
+                blocks.append(("ul", [item]))
+        else:
+            paragraph.append(_MD_BOLD.sub(r"\1", line))
+    flush()
+    return blocks
+
+
 def money(value: float | None) -> str:
     if value is None:
         return "?"
@@ -113,6 +152,7 @@ def create_templates() -> Jinja2Templates:
         br_datetime=br_datetime,
         money=money,
         posted_ago=posted_ago,
+        description_blocks=description_blocks,
     )
     templates.env.globals.update(
         work_mode_label=_WORK_MODE_LABELS.get,

@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from app.web.templating import job_type_label, posted_ago, seniority_label
+from app.web.templating import description_blocks, job_type_label, posted_ago, seniority_label
 
 pytestmark = pytest.mark.unit
 
@@ -47,3 +47,29 @@ def test_job_type_label_translates_known_and_keeps_unknown():
     assert job_type_label("fulltime") == "Tempo integral"
     assert job_type_label("fulltime, contract") == "Tempo integral, Contrato"
     assert job_type_label("freelance") == "freelance"
+
+
+def test_description_blocks_clean_jobspy_markdown():
+    text = (
+        "**Job Description:**\n"
+        " Work in a fast\\-paced, mid\\-level team \\& grow.\n"
+        "   \n\n"
+        "Second   paragraph\n"
+        "continues here with **bold** text.\n"
+        "* First item\n"
+        "* Second \\(CI\\-CD\\)\n"
+        "\n"
+        "**Skills:** Python"
+    )
+
+    assert description_blocks(text) == [
+        ("h", "Job Description"),
+        ("p", "Work in a fast-paced, mid-level team & grow."),
+        ("p", "Second paragraph continues here with bold text."),
+        ("ul", ["First item", "Second (CI-CD)"]),
+        ("p", "Skills: Python"),
+    ]
+
+
+def test_description_blocks_of_empty_text():
+    assert description_blocks("") == []
