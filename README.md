@@ -9,16 +9,22 @@ Assistente de busca e análise estratégica de vagas.
 
 ```bash
 uv sync
-cp .env.example .env                                              # ajuste LLM_PROVIDER etc.
-cp profile_data/profile.example.json profile_data/profile.json   # preencha com o seu perfil
+cp .env.example .env                                              # valores iniciais (LLM_PROVIDER etc.)
 uv run main.py                                                    # http://127.0.0.1:8000
 ```
 
 - **Interface web:** `http://127.0.0.1:8000` — busca, lista de vagas e análise de match.
+- **Painel de configurações:** `http://127.0.0.1:8000/settings` (ícone ⚙ no cabeçalho) — perfil
+  profissional, provedor de IA, prompts, plataformas de vagas e limites. O que é salvo ali fica
+  no banco e vale na hora, sem reiniciar; o `.env` só fornece os valores iniciais.
 - **API JSON:** documentação interativa em `http://127.0.0.1:8000/docs`.
 - As migrações do banco são aplicadas automaticamente na subida.
-- O perfil é relido a cada alteração do arquivo; matches feitos com o perfil antigo
-  aparecem como "perfil mudou" e são recalculados na próxima análise.
+- **Perfil:** cadastre-o em `/settings/profile`. Opcionalmente, copie
+  `profile_data/profile.example.json` e `profile_data/profile_base.example.json` (sem o
+  `.example`) antes da primeira execução: eles são importados para o banco **uma única vez**, se o
+  banco ainda não tiver perfil, e depois não são mais lidos.
+- Matches feitos com o perfil antigo aparecem como "perfil mudou" e são recalculados na próxima
+  análise.
 
 A aplicação não tem autenticação: ela escuta só em `127.0.0.1` e recusa formulários
 enviados por outros sites (verificação de `Origin`/`Referer`). Não a exponha na rede.
