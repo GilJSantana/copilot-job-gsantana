@@ -1,0 +1,58 @@
+{% from "components/ui/icons.html" import icon as _icon %}
+
+{# Campo de formulário do TailAdmin: borda `stroke`, foco `primary`, fundo `form-input` no escuro. #}
+{% set _FIELD = "w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 text-black outline-none transition placeholder:text-body/70 focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiten dark:border-form-strokedark dark:bg-form-input dark:text-white dark:placeholder:text-bodydark2 dark:focus:border-primary" %}
+
+{% macro label_text(text, for_id) -%}
+  <label for="{{ for_id }}" class="mb-2.5 block text-sm font-medium text-black dark:text-white">{{ text }}</label>
+{%- endmacro %}
+
+{% macro field_classes(with_icon=false) -%}
+  {{ _FIELD }}{% if with_icon %} pl-11{% endif %}
+{%- endmacro %}
+
+{# `id`: obrigatório quando o mesmo campo aparece em mais de um formulário da página. #}
+{% macro text_input(name, label, value="", placeholder="", icon=none, type="text", attrs={}, id=none, hint=none) -%}
+  {% set id = id or "f-" ~ name %}
+  <div>
+    {{ label_text(label, id) }}
+    <div class="relative">
+      {% if icon %}
+        <span class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-body dark:text-bodydark">{{ _icon(icon, "size-5") }}</span>
+      {% endif %}
+      <input id="{{ id }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}"
+             placeholder="{{ placeholder }}" class="{{ field_classes(icon is not none) }}"{{ attrs|xmlattr }}>
+    </div>
+    {% if hint %}<p class="mt-1.5 text-xs text-body dark:text-bodydark">{{ hint }}</p>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro textarea(name, label, value="", rows=4, placeholder="", hint=none, id=none, classes="", attrs={}) -%}
+  {% set id = id or "f-" ~ name %}
+  <div>
+    {{ label_text(label, id) }}
+    <textarea id="{{ id }}" name="{{ name }}" rows="{{ rows }}" placeholder="{{ placeholder }}"
+              class="{{ field_classes() }} {{ classes }}"{{ attrs|xmlattr }}>{{ value if value is not none else '' }}</textarea>
+    {% if hint %}<p class="mt-1.5 text-xs text-body dark:text-bodydark">{{ hint }}</p>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro select(name, label, options, selected=none, attrs={}, inline=false, id=none) -%}
+  {% set id = id or "f-" ~ name %}
+  <div class="{{ 'flex items-center gap-2' if inline else '' }}">
+    {% if inline %}
+      <label for="{{ id }}" class="text-sm whitespace-nowrap text-body dark:text-bodydark">{{ label }}</label>
+    {% else %}
+      {{ label_text(label, id) }}
+    {% endif %}
+    <div class="relative">
+      <select id="{{ id }}" name="{{ name }}"
+              class="{{ field_classes() }} appearance-none {{ 'py-2 pr-9 pl-3 text-sm' if inline else 'pr-10' }}"{{ attrs|xmlattr }}>
+        {% for value, text in options %}
+          <option value="{{ value }}" {% if value == selected %}selected{% endif %}>{{ text }}</option>
+        {% endfor %}
+      </select>
+      <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-body dark:text-bodydark">{{ _icon("chevron-down", "size-4") }}</span>
+    </div>
+  </div>
+{%- endmacro %}

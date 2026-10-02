@@ -1,0 +1,19 @@
+{#
+  Plataformas como chips alternáveis: cada chip é um checkbox `sites` (o formulário
+  envia exatamente o mesmo que antes) estilizado pelo estado `:checked`.
+#}
+{% macro platform_chips(all_sites, selected, name="sites", legend="Sites") -%}
+  <fieldset class="flex flex-wrap items-center gap-2">
+    <legend class="sr-only">{{ legend }}</legend>
+    <span class="mr-1 text-sm font-medium text-black dark:text-white" aria-hidden="true">{{ legend }}</span>
+    {% for value, label in all_sites %}
+      <label class="cursor-pointer">
+        <input type="checkbox" name="{{ name }}" value="{{ value }}" class="peer sr-only"
+               {% if value in selected %}checked{% endif %} data-filter>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-stroke px-4 py-1.5 text-sm font-medium text-body transition select-none hover:border-primary hover:text-primary peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 dark:border-strokedark dark:text-bodydark dark:peer-checked:text-white">
+          {{ label }}
+        </span>
+      </label>
+    {% endfor %}
+  </fieldset>
+{%- endmacro %}

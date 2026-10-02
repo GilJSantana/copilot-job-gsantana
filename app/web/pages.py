@@ -7,8 +7,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from app.domain.exceptions import JobSourceError, ProfileError
+from app.domain.exceptions import (
+    JobSourceError,
+    ProfileError,
+    RateLimitExceededError,
+    SourcesDisabledError,
+)
 from app.domain.models import JobSite, OutreachChannel, OutreachLanguage
+from app.web.container import Container
 from app.web.dependencies import (
     ContainerDep,
     JobDep,
@@ -16,7 +22,8 @@ from app.web.dependencies import (
     profile_or_none,
     require_same_origin,
 )
-from app.web.schemas import JobDetailOut, JobSummaryOut, OutreachOut, SearchIn
+from app.web.preview import mock_jobs
+from app.web.schemas import CVVersionOut, JobDetailOut, JobSummaryOut, OutreachOut, SearchIn
 
 PAGE_SIZE = 25
 
@@ -30,11 +37,26 @@ _DEFAULT_FORM: dict[str, Any] = {
 }
 
 
-def build_router(templates: Jinja2Templates) -> APIRouter:
+def build_router(templates: Jinja2Templates, *, enable_preview: bool = False) -> APIRouter:
     router = APIRouter(include_in_schema=False)
 
     def render(request: Request, name: str, context: dict[str, Any], status: int = 200) -> HTMLResponse:
         return templates.TemplateResponse(request, name, context, status_code=status)
+
+    async def render_index(
+        request: Request,
+        context: dict[str, Any],
+        status: int = 200,
+        container: Container | None = None,
+    ) -> HTMLResponse:
+        # só as plataformas ativas no painel (/settings/scrapers); a prévia mostra todas
+        active = (await container.system_settings.scrapers()).active_sites if container else tuple(JobSite)
+        defaults = _DEFAULT_FORM | {
+            "sites": [site for site in _DEFAULT_FORM["sites"] if site in active] or [active[0].value]
+        }
+        # o painel de busca compara com os padrões para decidir se abre os filtros avançados
+        base = {"default_form": defaults, "form": defaults, "active_sites": [site.value for site in active]}
+        return render(request, "index.html", base | context, status)
 
     @router.get("/")
     async def index(request: Request, container: ContainerDep, page: int = 1) -> HTMLResponse:
@@ -46,11 +68,9 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         jobs = jobs[:PAGE_SIZE]
         matches = await matches_for(container, jobs)
         profile = await profile_or_none(container)
-        return render(
+        return await render_index(
             request,
-            "index.html",
             {
-                "form": _DEFAULT_FORM,
                 "jobs": [
                     JobSummaryOut.from_domain(j, match=matches.get(j.dedup_key), profile=profile)
                     for j in jobs
@@ -58,6 +78,7 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 "page": page,
                 "has_next": has_next,
             },
+            container=container,
         )
 
     @router.post("/search", dependencies=[Depends(require_same_origin)])
@@ -80,8 +101,10 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             "remote_only": remote_only,
         }
 
-        def fail(message: str, status: int) -> HTMLResponse:
-            return render(request, "index.html", {"form": form, "jobs": [], "error": message}, status)
+        async def fail(message: str, status: int) -> HTMLResponse:
+            return await render_index(
+                request, {"form": form, "jobs": [], "error": message}, status, container
+            )
 
         try:
             body = SearchIn(
@@ -93,19 +116,22 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 remote_only=remote_only,
             )
         except ValidationError as exc:
-            return fail(_describe_validation_error(exc), 422)
+            return await fail(_describe_validation_error(exc), 422)
 
         try:
             result = await container.job_service.search(body.to_criteria())
         except JobSourceError as exc:
-            return fail(f"Nenhuma fonte respondeu: {exc}", 502)
+            return await fail(f"Nenhuma fonte respondeu: {exc}", 502)
+        except SourcesDisabledError as exc:
+            return await fail(str(exc), 422)
+        except RateLimitExceededError as exc:
+            return await fail(str(exc), 429)
 
         jobs = list(result.jobs)
         matches = await matches_for(container, jobs)
         profile = await profile_or_none(container)
-        return render(
+        return await render_index(
             request,
-            "index.html",
             {
                 "form": form,
                 "result": result,
@@ -119,7 +145,15 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                     for j in jobs
                 ],
             },
+            container=container,
         )
+
+    if enable_preview:
+
+        @router.get("/preview/search")
+        async def search_preview(request: Request) -> HTMLResponse:
+            """Página de busca com vagas simuladas, para validação visual dos componentes."""
+            return await render_index(request, {"jobs": mock_jobs(), "preview": True})
 
     @router.get("/jobs/{key}")
     async def job_detail(request: Request, job: JobDep, container: ContainerDep) -> HTMLResponse:
@@ -130,6 +164,12 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
         except ProfileError as exc:
             profile, profile_error = None, str(exc)
         drafts = await container.outreach_service.history(job)
+        try:
+            history = await container.career_histories.get()
+            history_error = None
+        except ProfileError as exc:
+            history, history_error = None, str(exc)
+        versions = await container.cv_tailor_service.versions(job)
         return render(
             request,
             "job_detail.html",
@@ -139,6 +179,8 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
                 "drafts": [OutreachOut.from_domain(d, profile) for d in drafts],
                 "channels": list(OutreachChannel),
                 "languages": list(OutreachLanguage),
+                "history_error": history_error,
+                "cv_versions": [CVVersionOut.from_domain(v, history) for v in versions],
             },
         )
 
@@ -171,6 +213,15 @@ def build_router(templates: Jinja2Templates) -> APIRouter:
             recipient_name=recipient_name or None,
         )
         return RedirectResponse(f"/jobs/{job.dedup_key}#outreach", status_code=303)
+
+    @router.post("/jobs/{key}/cvs", dependencies=[Depends(require_same_origin)])
+    async def tailor_cv(
+        job: JobDep,
+        container: ContainerDep,
+        language: Annotated[OutreachLanguage, Form()] = OutreachLanguage.PT,
+    ) -> Response:
+        await container.cv_tailor_service.tailor(job, language=language)
+        return RedirectResponse(f"/jobs/{job.dedup_key}#cv", status_code=303)
 
     return router
 

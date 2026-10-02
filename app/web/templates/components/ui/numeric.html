@@ -1,0 +1,28 @@
+{% from "components/ui/icons.html" import icon as _icon %}
+{% from "components/ui/input.html" import label_text, field_classes %}
+
+{#
+  Campo numérico com botões −/+ (passo do próprio <input>, então min/max valem igual).
+  Sem JS os botões somem do fluxo útil e o campo continua digitável.
+#}
+{% macro numeric_control(name, label, value, min=1, max=none, step=1, suffix=none, placeholder="", hint=none) -%}
+  {% set id = "f-" ~ name %}
+  {% set stepper = "flex w-11 shrink-0 items-center justify-center border-stroke text-body transition hover:bg-gray-2 hover:text-primary dark:border-form-strokedark dark:text-bodydark dark:hover:bg-meta-4" %}
+  <div data-numeric>
+    {{ label_text(label, id) }}
+    <div class="flex overflow-hidden rounded border-[1.5px] border-stroke focus-within:border-primary dark:border-form-strokedark">
+      <button type="button" class="{{ stepper }} border-r" data-step="-1" aria-label="Diminuir {{ label|lower }}">{{ _icon("minus", "size-4") }}</button>
+      <div class="relative flex-1">
+        <input id="{{ id }}" name="{{ name }}" type="number" inputmode="numeric"
+               value="{{ value if value is not none else '' }}" min="{{ min }}"{% if max is not none %} max="{{ max }}"{% endif %} step="{{ step }}"
+               placeholder="{{ placeholder }}"
+               class="{{ field_classes() }} rounded-none border-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none {{ 'pr-12' if suffix else '' }}">
+        {% if suffix %}
+          <span class="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-body dark:text-bodydark">{{ suffix }}</span>
+        {% endif %}
+      </div>
+      <button type="button" class="{{ stepper }} border-l" data-step="1" aria-label="Aumentar {{ label|lower }}">{{ _icon("plus", "size-4") }}</button>
+    </div>
+    {% if hint %}<p class="mt-1.5 text-xs text-body dark:text-bodydark">{{ hint }}</p>{% endif %}
+  </div>
+{%- endmacro %}

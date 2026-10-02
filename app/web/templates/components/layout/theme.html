@@ -1,0 +1,52 @@
+{#
+  Tokens do TailAdmin no Tailwind v4 (navegador). Os nomes seguem o TailAdmin
+  (`primary`, `stroke`, `boxdark`, `meta-3`…) para que as classes dos componentes
+  sejam as mesmas da documentação dele.
+#}
+<style type="text/tailwindcss">
+  @custom-variant dark (&:where(.dark, .dark *));
+
+  @theme {
+    --color-primary: #3c50e0;
+    --color-secondary: #80caee;
+    /* primary como texto sobre boxdark: o #3c50e0 não tem contraste suficiente */
+    --color-primary-light: #8b9cf7;
+    --color-stroke: #e2e8f0;
+    --color-strokedark: #2e3a47;
+    --color-body: #64748b;
+    --color-bodydark: #aeb7c0;
+    --color-bodydark2: #8a99af;
+    --color-black: #1c2434;
+    --color-boxdark: #24303f;
+    --color-boxdark-2: #1a222c;
+    --color-whiten: #f1f5f9;
+    --color-gray-2: #f7f9fc;
+    --color-form-input: #1d2a39;
+    --color-form-strokedark: #3d4d60;
+    --color-meta-1: #dc3545;
+    --color-meta-3: #10b981;
+    --color-meta-4: #313d4a;
+    --color-meta-5: #259ae6;
+    --color-meta-6: #ffba00;
+    --color-warning: #ffa70b;
+
+    --shadow-default: 0px 8px 13px -3px rgba(0, 0, 0, 0.07);
+    --shadow-1: 0px 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-card: 0px 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-switcher: 0px 2px 4px rgba(0, 0, 0, 0.2), inset 0px 2px 2px #ffffff, inset 0px -1px 1px rgba(0, 0, 0, 0.1);
+  }
+</style>
+{#
+  Antes do primeiro paint, para não piscar: escolha salva > preferência do sistema.
+  Só em páginas que declaram suporte ao modo escuro (`data-theme-aware` no <html>).
+#}
+<script>
+  (() => {
+    const root = document.documentElement;
+    if (!root.hasAttribute("data-theme-aware")) return;
+    let saved = null;
+    try { saved = localStorage.getItem("theme"); } catch {}
+    const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.classList.toggle("dark", dark);
+  })();
+</script>

@@ -1,0 +1,44 @@
+{% from "components/ui/icons.html" import icon %}
+
+{#
+  `nav_items`: (rótulo, href ou None, ativo). Sem href o item aparece desabilitado
+  ("em breve") em vez de levar a uma página que ainda não existe.
+#}
+{% macro header(nav_items, theme_toggle=false, settings_active=false) -%}
+  <header class="sticky top-0 z-30 border-b border-stroke bg-white shadow-1 dark:border-strokedark dark:bg-boxdark">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+      <a href="/" class="flex items-center gap-2.5 text-lg font-bold tracking-tight text-black dark:text-white">
+        <span class="flex size-8 items-center justify-center rounded-md bg-primary text-white">{{ icon("briefcase", "size-4") }}</span>
+        copilot-job-gil
+      </a>
+
+      <div class="flex min-w-0 items-center gap-1 max-sm:w-full max-sm:justify-between sm:gap-3">
+        <nav aria-label="Principal" class="flex min-w-0 overflow-x-auto text-sm font-medium max-sm:-ml-3">
+          {% for label, href, active in nav_items %}
+            {% if href %}
+              <a href="{{ href }}" {% if active %}aria-current="page"{% endif %}
+                 class="rounded-md px-3 py-2 whitespace-nowrap transition {{ 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' if active else 'text-body hover:text-primary dark:text-bodydark dark:hover:text-white' }}">{{ label }}</a>
+            {% else %}
+              <span aria-disabled="true" title="Em breve"
+                    class="cursor-not-allowed rounded-md px-3 py-2 whitespace-nowrap text-body/50 dark:text-bodydark/50">{{ label }}</span>
+            {% endif %}
+          {% endfor %}
+        </nav>
+
+        <a href="/settings" aria-label="Configurações" title="Configurações" data-settings-link
+           {% if settings_active %}aria-current="page"{% endif %}
+           class="flex size-9 items-center justify-center rounded-full border transition {{ 'border-primary bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light' if settings_active else 'border-stroke bg-gray-2 text-body hover:text-primary dark:border-strokedark dark:bg-meta-4 dark:text-bodydark dark:hover:text-white' }}">
+          {{ icon("settings", "size-4") }}
+        </a>
+
+        {% if theme_toggle %}
+          <button type="button" data-theme-toggle aria-label="Alternar tema claro/escuro"
+                  class="flex size-9 items-center justify-center rounded-full border border-stroke bg-gray-2 text-body transition hover:text-primary dark:border-strokedark dark:bg-meta-4 dark:text-bodydark dark:hover:text-white">
+            <span class="dark:hidden">{{ icon("moon", "size-4") }}</span>
+            <span class="hidden dark:inline">{{ icon("sun", "size-4") }}</span>
+          </button>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+{%- endmacro %}

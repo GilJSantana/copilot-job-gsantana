@@ -1,0 +1,59 @@
+{% from "components/ui/icons.html" import icon %}
+{% from "components/ui/input.html" import select %}
+{% from "components/jobs/job_card.html" import job_card %}
+{% from "components/jobs/job_skeleton.html" import job_skeletons %}
+{% from "components/jobs/empty_state.html" import empty_state %}
+
+{% set SORT_OPTIONS = [("date", "Data"), ("score", "Aderência")] %}
+
+{#
+  Resultados com três estados: [Success] lista de cards, [Empty] mensagem e
+  [Loading] skeletons — este último fica em <template> e o JS (`onSearch`) o ativa.
+#}
+{% macro results_list(jobs, result=none, error=none, page=none, has_next=false) -%}
+  <section aria-labelledby="results-title" data-results>
+    {% if error %}
+      <div role="alert" class="mb-4 flex items-start gap-3 rounded-sm border-l-4 border-meta-1 bg-meta-1/10 px-4 py-3 text-sm text-meta-1">
+        {{ icon("alert", "size-5") }}<span>{{ error }}</span>
+      </div>
+    {% endif %}
+
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 id="results-title" class="text-lg font-semibold text-black dark:text-white">
+          {{ jobs|length }} {{ "vaga encontrada" if jobs|length == 1 else "vagas encontradas" }}
+        </h2>
+        {% if result %}
+          <p class="text-sm text-body dark:text-bodydark">
+            {{ result.new_keys|length }} novas · {{ result.duplicates_removed }} duplicatas removidas
+          </p>
+        {% endif %}
+      </div>
+      {% if jobs|length > 1 %}
+        {{ select("sort", "Ordenar por:", SORT_OPTIONS, selected="date", inline=true, attrs={"data-sort": true}) }}
+      {% endif %}
+    </div>
+
+    <div class="space-y-4" data-results-stack aria-live="polite">
+      {% for job in jobs %}
+        {{ job_card(job) }}
+      {% else %}
+        {% if not error %}
+          {{ empty_state("Nenhuma vaga encontrada", "Nenhuma vaga ainda. Faça uma busca acima.") }}
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <template data-loading-template>
+      <p class="sr-only" role="status">Buscando vagas…</p>
+      {{ job_skeletons(3) }}
+    </template>
+
+    {% if page and (page > 1 or has_next) %}
+      <nav class="mt-6 flex justify-between text-sm font-medium" aria-label="Paginação">
+        {% if page > 1 %}<a href="/?page={{ page - 1 }}" class="text-primary hover:underline dark:text-primary-light">← Anteriores</a>{% else %}<span></span>{% endif %}
+        {% if has_next %}<a href="/?page={{ page + 1 }}" class="text-primary hover:underline dark:text-primary-light">Mais antigas →</a>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
+{%- endmacro %}

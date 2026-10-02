@@ -1,30 +1,36 @@
+{#
+  Variáveis que a página filha pode definir antes do `extends`:
+  - theme_aware: a página tem estilos escuros (liga o modo escuro e o seletor de tema)
+  - nav_active: item ativo do menu ("jobs" ou "settings")
+  - container_classes: largura/espaçamento do container principal
+#}
+{% from "components/layout/header.html" import header %}
+{% from "components/layout/main_container.html" import main_container %}
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR"{% if theme_aware %} data-theme-aware{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Vagas{% endblock %} · copilot-job-gil</title>
   {# Tailwind via CDN: prático para uso local; para produção, gerar o CSS no build #}
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  {% include "components/layout/theme.html" %}
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
-  <header class="border-b border-slate-200 bg-white">
-    <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-      <a href="/" class="font-semibold tracking-tight text-slate-900">copilot-job-gil</a>
-      <div class="flex gap-4 text-sm text-slate-600">
-        <a href="/" class="hover:text-slate-900">Vagas</a>
-        <a href="/docs" class="hover:text-slate-900">API</a>
-      </div>
-    </nav>
-  </header>
+<body class="min-h-screen bg-whiten text-body antialiased dark:bg-boxdark-2 dark:text-bodydark">
+  {{ header([
+       ("Vagas", "/", nav_active == "jobs"),
+       ("Modelos de CV", none, false),
+       ("Docs da API", "/docs", false),
+     ], theme_toggle=theme_aware, settings_active=nav_active == "settings") }}
 
-  <main class="mx-auto max-w-5xl px-4 py-6">
+  {% call main_container(container_classes or "max-w-5xl py-6") %}
     {% block content %}{% endblock %}
-  </main>
+  {% endcall %}
 
   <script>
     // Buscas e análises levam de segundos a minutos: evita clique duplo e mostra progresso.
-    document.querySelectorAll("form[data-busy]").forEach((form) => {
+    // O formulário de busca tem o próprio handler (job_search.js).
+    document.querySelectorAll("form[data-busy]:not([data-search-form])").forEach((form) => {
       form.addEventListener("submit", () => {
         const button = form.querySelector("button[type=submit]");
         button.disabled = true;

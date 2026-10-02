@@ -1,0 +1,9 @@
+{% from "components/ui/icons.html" import icon %}
+
+{% macro empty_state(title, message) -%}
+  <div class="flex flex-col items-center rounded-sm border border-dashed border-stroke bg-white px-6 py-14 text-center dark:border-strokedark dark:bg-boxdark">
+    <span class="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">{{ icon("inbox", "size-8") }}</span>
+    <h3 class="mt-4 text-base font-semibold text-black dark:text-white">{{ title }}</h3>
+    <p class="mt-1 max-w-sm text-sm text-body dark:text-bodydark">{{ message }}</p>
+  </div>
+{%- endmacro %}

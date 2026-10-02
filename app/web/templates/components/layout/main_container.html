@@ -1,0 +1,6 @@
+{# Container central das páginas; uso: {% call main_container() %}…{% endcall %} #}
+{% macro main_container(classes="max-w-6xl py-8") -%}
+  <main class="mx-auto px-4 {{ classes }}">
+    {{ caller() }}
+  </main>
+{%- endmacro %}

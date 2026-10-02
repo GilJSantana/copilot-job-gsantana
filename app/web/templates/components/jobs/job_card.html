@@ -1,0 +1,66 @@
+{% from "components/ui/icons.html" import icon %}
+{% from "components/ui/badge.html" import badge, verdict_tone %}
+{% from "components/ui/button.html" import button %}
+
+{% macro _match_badge(match) -%}
+  {% if match %}
+    <span title="{{ verdict_label(match.verdict) }}">{{ badge(match.score|round|int ~ "% Match", verdict_tone(match.verdict), "md") }}</span>
+  {% else %}
+    {{ badge("Match não analisado") }}
+  {% endif %}
+{%- endmacro %}
+
+{# Tags curtas: modelo de trabalho, senioridade inferida do título, tipo e as skills que deram match. #}
+{% macro _tags(job) -%}
+  {% set seniority = seniority_label(job.title) %}
+  <div class="flex flex-wrap gap-1.5">
+    {% if job.work_mode == "remote" %}{{ badge("Remoto", "success") }}{% elif job.work_mode != "unknown" %}{{ badge(work_mode_label(job.work_mode), "info") }}{% endif %}
+    {% if seniority %}{{ badge(seniority, "primary") }}{% endif %}
+    {% if job.job_type %}{{ badge(job_type_label(job.job_type)) }}{% endif %}
+    {% if job.match %}{% for skill in job.match.matched_skills[:3] %}{{ badge(skill) }}{% endfor %}{% endif %}
+    {% if job.match and job.match.is_current == false %}{{ badge("perfil mudou", "warning") }}{% endif %}
+    {% if job.match and not job.match.used_llm %}{{ badge("sem LLM") }}{% endif %}
+  </div>
+{%- endmacro %}
+
+{#
+  Card de vaga. `data-score`/`data-posted` alimentam a ordenação no cliente
+  (`onFilterChange`); `data-job-key` identifica a vaga para os handlers das ações.
+#}
+{% macro job_card(job) -%}
+  <article class="rounded-sm border border-stroke bg-white p-5 shadow-default transition hover:border-primary/40 sm:p-6 dark:border-strokedark dark:bg-boxdark"
+           data-job-card data-job-key="{{ job.key }}"
+           data-score="{{ job.match.score if job.match else -1 }}"
+           data-posted="{{ job.date_posted.isoformat() if job.date_posted else '' }}">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <a href="/jobs/{{ job.key }}" class="text-base font-semibold text-black hover:text-primary sm:text-lg dark:text-white dark:hover:text-primary">{{ job.title }}</a>
+        {% if job.is_new %}<span class="ml-1.5 align-middle">{{ badge("Nova", "violet") }}</span>{% endif %}
+      </div>
+      {{ _match_badge(job.match) }}
+    </div>
+
+    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-body dark:text-bodydark">
+      <span class="flex items-center gap-1.5 font-medium text-black dark:text-white">{{ icon("building", "size-4") }}{{ job.company }}</span>
+      {% if job.location %}<span class="flex items-center gap-1.5">{{ icon("map-pin", "size-4") }}{{ job.location }}</span>{% endif %}
+      {% if job.date_posted %}<span class="flex items-center gap-1.5">{{ icon("clock", "size-4") }}<time datetime="{{ job.date_posted.isoformat() }}" title="{{ job.date_posted|br_date }}">{{ job.date_posted|posted_ago }}</time></span>{% endif %}
+      {% if job.salary %}<span>{{ job.salary.currency }} {{ job.salary.min_amount|money }}–{{ job.salary.max_amount|money }}</span>{% endif %}
+    </div>
+
+    <div class="mt-3">{{ _tags(job) }}</div>
+
+    <div class="mt-4 flex flex-col gap-3 border-t border-stroke pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-strokedark">
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+        <a href="{{ job.url|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline dark:text-primary-light">{{ site_label(job.source) }} ↗</a>
+        {% for listing in job.other_listings %}
+          <a href="{{ listing.url|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline dark:text-primary-light">{{ site_label(listing.source) }} ↗</a>
+        {% endfor %}
+      </div>
+      <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+        {{ button("Copiar Pitch", "secondary", "sm", icon="copy", attrs={"data-action": "copy-pitch"}) }}
+        {{ button("Ver Detalhes", "primary", "sm", icon="arrow-right", href="/jobs/" ~ job.key) }}
+        {{ button("Otimizar CV para esta Vaga", "action", "sm", icon="sparkles", attrs={"data-action": "optimize-cv"}) }}
+      </div>
+    </div>
+  </article>
+{%- endmacro %}

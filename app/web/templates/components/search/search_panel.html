@@ -1,0 +1,41 @@
+{% from "components/ui/button.html" import button %}
+{% from "components/ui/switch.html" import switch %}
+{% from "components/search/input_group.html" import input_group %}
+{% from "components/search/platform_chips.html" import platform_chips %}
+{% from "components/search/advanced_filters.html" import advanced_filters %}
+
+{#
+  Painel de busca. O <form> é a integração com o backend (POST /search); o JS
+  (`onSearch`) só acrescenta o estado de carregamento — sem JS a busca funciona igual.
+#}
+{% macro search_panel(form, all_sites, defaults) -%}
+  {% set advanced_changed = form.results_wanted|string != defaults.results_wanted|string
+                            or form.hours_old|string != defaults.hours_old|string %}
+  <section aria-labelledby="search-title"
+           class="mb-6 rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+    <div class="border-b border-stroke px-6 py-4 dark:border-strokedark">
+      <h1 id="search-title" class="text-lg font-semibold text-black dark:text-white">Buscar Oportunidades</h1>
+      <p class="mt-0.5 text-sm text-body dark:text-bodydark">Busca nas plataformas, remove duplicatas e calcula o match com o seu perfil.</p>
+    </div>
+
+    <form method="post" action="/search" class="p-6" data-search-form
+          data-busy="Buscando… pode levar alguns minutos">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {{ input_group("search_term", "Cargo ou palavra-chave", form.search_term,
+                       "ex.: Senior Python Engineer", "search", required=true) }}
+        {{ input_group("location", "Localização", form.location, "ex.: São Paulo, Brasil", "map-pin") }}
+      </div>
+
+      <div class="my-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        {{ platform_chips(all_sites, form.sites) }}
+        {{ switch("remote_only", "Apenas Remoto", checked=form.remote_only, attrs={"data-filter": true}) }}
+      </div>
+
+      {{ advanced_filters(form, open=advanced_changed) }}
+
+      <div class="mt-6 flex justify-end">
+        {{ button("Buscar Vagas", type="submit", icon="search", classes="w-full sm:w-auto") }}
+      </div>
+    </form>
+  </section>
+{%- endmacro %}

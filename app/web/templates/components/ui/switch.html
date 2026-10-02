@@ -1,0 +1,15 @@
+{#
+  Switch do TailAdmin sobre um checkbox nativo: continua enviável no formulário,
+  focável pelo teclado e anunciado como interruptor (`role="switch"`).
+#}
+{% macro switch(name, label, checked=false, value="true", attrs={}) -%}
+  <label class="inline-flex cursor-pointer items-center gap-3 rounded-md border border-stroke px-4 py-2 select-none dark:border-strokedark">
+    <span class="relative inline-flex">
+      <input type="checkbox" role="switch" name="{{ name }}" value="{{ value }}" class="peer sr-only"
+             {% if checked %}checked{% endif %}{{ attrs|xmlattr }}>
+      <span class="block h-6 w-11 rounded-full bg-stroke transition peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 dark:bg-strokedark"></span>
+      <span class="absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-switcher transition peer-checked:translate-x-5"></span>
+    </span>
+    <span class="text-sm font-medium text-black dark:text-white">{{ label }}</span>
+  </label>
+{%- endmacro %}

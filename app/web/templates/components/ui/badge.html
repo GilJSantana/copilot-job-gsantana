@@ -1,0 +1,18 @@
+{# Badges do TailAdmin: fundo da cor a 10% e texto na cor cheia; legíveis nos dois temas. #}
+{% set _TONES = {
+  "neutral": "bg-gray-2 text-body dark:bg-meta-4 dark:text-bodydark",
+  "primary": "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light",
+  "success": "bg-meta-3/10 text-meta-3",
+  "warning": "bg-warning/10 text-warning",
+  "danger": "bg-meta-1/10 text-meta-1",
+  "info": "bg-meta-5/10 text-meta-5",
+  "violet": "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+} %}
+
+{% set _VERDICT_TONES = {"strong": "success", "good": "primary", "weak": "warning", "poor": "danger"} %}
+
+{% macro badge(text, tone="neutral", size="sm") -%}
+  <span class="inline-flex items-center rounded-full font-medium {{ 'px-3 py-1 text-sm' if size == 'md' else 'px-2.5 py-0.5 text-xs' }} {{ _TONES[tone] }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro verdict_tone(verdict) -%}{{ _VERDICT_TONES[verdict] }}{%- endmacro %}

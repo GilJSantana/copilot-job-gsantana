@@ -1,0 +1,7 @@
+{% from "components/ui/input.html" import text_input %}
+
+{# Campos primários da busca: rótulo + ícone à esquerda + validação nativa do navegador. #}
+{% macro input_group(name, label, value, placeholder, icon, required=false, maxlength=200) -%}
+  {% set attrs = {"maxlength": maxlength, "required": required or none, "autocomplete": "off"} %}
+  {{ text_input(name, label, value=value, placeholder=placeholder, icon=icon, attrs=attrs) }}
+{%- endmacro %}

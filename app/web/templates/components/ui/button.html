@@ -1,0 +1,28 @@
+{% from "components/ui/icons.html" import icon as _icon %}
+
+{# Botões no padrão TailAdmin: `primary` (ação principal), `secondary` (contorno), `action` (destaque de IA). #}
+{% set _BASE = "inline-flex items-center justify-center gap-2 rounded-md font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60" %}
+{% set _VARIANTS = {
+  "primary": "bg-primary text-white hover:bg-primary/90",
+  "secondary": "border border-stroke bg-white text-black hover:border-primary hover:text-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:hover:border-primary dark:hover:text-primary",
+  "action": "bg-meta-3/10 text-meta-3 hover:bg-meta-3 hover:text-white",
+  "ghost": "text-body hover:text-primary dark:text-bodydark dark:hover:text-primary",
+} %}
+{% set _SIZES = {"sm": "px-3.5 py-2 text-sm", "md": "px-6 py-3 text-sm"} %}
+
+{% macro button_classes(variant="primary", size="md") -%}
+  {{ _BASE }} {{ _VARIANTS[variant] }} {{ _SIZES[size] }}
+{%- endmacro %}
+
+{#
+  `attrs` vira atributos HTML escapados (data-*, aria-*, form…).
+  `href` transforma o botão em link com a mesma aparência.
+#}
+{% macro button(label, variant="primary", size="md", type="button", icon=none, href=none, attrs={}, classes="") -%}
+  {% set content %}{% if icon %}{{ _icon(icon, "size-4") }}{% endif %}<span data-label>{{ label }}</span>{% endset %}
+  {% if href %}
+    <a href="{{ href }}" class="{{ button_classes(variant, size) }} {{ classes }}"{{ attrs|xmlattr }}>{{ content }}</a>
+  {% else %}
+    <button type="{{ type }}" class="{{ button_classes(variant, size) }} {{ classes }}"{{ attrs|xmlattr }}>{{ content }}</button>
+  {% endif %}
+{%- endmacro %}
