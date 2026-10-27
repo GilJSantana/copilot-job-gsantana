@@ -2,11 +2,17 @@ import pytest
 from pydantic import ValidationError
 
 from app.adapters.gemini_adapter import GeminiAdapter
-from app.adapters.llm_factory import build_llm_provider
+from app.adapters.llm_factory import build_llm_adapter, llm_settings_from_env
 from app.adapters.ollama_adapter import OllamaAdapter
 from app.core.config import Settings
 
 pytestmark = pytest.mark.unit
+
+
+def build_llm_from_env(settings: Settings, timeout_seconds: float | None = None):
+    """Mesmo caminho do container antes de o painel salvar algo: `.env` → adapter."""
+    timeout = timeout_seconds or settings.llm_timeout_seconds
+    return build_llm_adapter(llm_settings_from_env(settings), timeout)
 
 _ENV_VARS = (
     "LLM_PROVIDER",
@@ -89,7 +95,7 @@ def test_rejects_invalid_values(monkeypatch, var, value):
 def test_factory_builds_ollama_adapter(monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5:7b")
 
-    provider = build_llm_provider(load_settings())
+    provider = build_llm_from_env(load_settings())
 
     assert isinstance(provider, OllamaAdapter)
     assert provider.name == "ollama:qwen2.5:7b"
@@ -99,7 +105,7 @@ def test_factory_builds_gemini_adapter(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "gemini")
     monkeypatch.setenv("GEMINI_API_KEY", "segredo")
 
-    provider = build_llm_provider(load_settings())
+    provider = build_llm_from_env(load_settings())
 
     assert isinstance(provider, GeminiAdapter)
     assert provider.name == "gemini:gemini-2.5-flash"
@@ -109,8 +115,8 @@ def test_factory_builds_gemini_adapter(monkeypatch):
 async def test_factory_accepts_a_timeout_override():
     settings = load_settings()
 
-    default = build_llm_provider(settings)
-    for_cv = build_llm_provider(settings, timeout_seconds=settings.cv_llm_timeout_seconds)
+    default = build_llm_from_env(settings)
+    for_cv = build_llm_from_env(settings, settings.cv_llm_timeout_seconds)
 
     assert default._client.timeout.read == 120.0
     assert for_cv._client.timeout.read == 600.0

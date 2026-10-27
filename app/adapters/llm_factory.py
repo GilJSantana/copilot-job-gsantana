@@ -47,9 +47,3 @@ def llm_settings_from_env(settings: Settings) -> LLMSettings:
 def build_llm_adapter(settings: LLMSettings, timeout_seconds: float) -> ILLMProvider:
     return _BUILDERS[settings.provider](settings, timeout_seconds)
 
-
-def build_llm_provider(settings: Settings, *, timeout_seconds: float | None = None) -> ILLMProvider:
-    """Adapter fixo a partir do `.env`. `timeout_seconds` sobrescreve
-    LLM_TIMEOUT_SECONDS (ex.: o CV Tailor gera respostas bem maiores que a análise de match)."""
-    timeout = timeout_seconds if timeout_seconds is not None else settings.llm_timeout_seconds
-    return build_llm_adapter(llm_settings_from_env(settings), timeout)
