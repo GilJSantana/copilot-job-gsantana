@@ -1,6 +1,9 @@
 """Adapter do Google Gemini (SDK `google-genai`) para a porta `ILLMProvider`."""
 
+import asyncio
 import json
+import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -11,6 +14,14 @@ from app.domain.exceptions import LLMProviderError, LLMResponseFormatError
 from app.domain.interfaces import ILLMProvider
 
 DEFAULT_MODEL = "gemini-2.5-flash"
+MAX_ATTEMPTS = 3
+# 429 (limite por minuto) e 5xx (ex.: 503 de alta demanda) costumam passar sozinhos
+_TRANSIENT_STATUS = {429, 500, 502, 503, 504}
+
+# não usamos `tools`; sem isso o SDK liga o AFC e emite avisos a cada chamada
+_NO_AFC = types.AutomaticFunctionCallingConfig(disable=True)
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiAdapter(ILLMProvider):
@@ -27,6 +38,8 @@ class GeminiAdapter(ILLMProvider):
         model: str = DEFAULT_MODEL,
         timeout_seconds: float = 60.0,
         client: genai.Client | None = None,
+        retry_base_delay: float = 1.0,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._owns_client = client is None
         if client is None:
@@ -37,7 +50,10 @@ class GeminiAdapter(ILLMProvider):
                 http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000)),
             )
         self._client = client
-        self._model = model
+        # o SDK já monta `models/{model}`; o prefixo vindo do .env/painel geraria 404
+        self._model = model.strip().removeprefix("models/")
+        self._retry_base_delay = retry_base_delay
+        self._sleep = sleep
 
     @property
     def name(self) -> str:
@@ -58,6 +74,7 @@ class GeminiAdapter(ILLMProvider):
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
             temperature=temperature,
+            automatic_function_calling=_NO_AFC,
         )
         return await self._generate_text(prompt, config)
 
@@ -72,6 +89,7 @@ class GeminiAdapter(ILLMProvider):
             system_instruction=system_prompt,
             temperature=temperature,
             response_mime_type="application/json",
+            automatic_function_calling=_NO_AFC,
         )
         text = await self._generate_text(prompt, config)
         try:
@@ -85,14 +103,34 @@ class GeminiAdapter(ILLMProvider):
         return payload
 
     async def _generate_text(self, prompt: str, config: types.GenerateContentConfig) -> str:
-        try:
-            response = await self._client.aio.models.generate_content(
-                model=self._model, contents=prompt, config=config
+        # DEBUG apenas: o prompt carrega dados do perfil/CV do usuário
+        logger.debug(
+            "Gemini payload: model=%s config=%s contents=%r",
+            self._model,
+            config.model_dump(exclude_none=True),
+            prompt,
+        )
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                response = await self._client.aio.models.generate_content(
+                    model=self._model, contents=prompt, config=config
+                )
+                break
+            except errors.APIError as exc:
+                error = LLMProviderError(f"Gemini API {exc.code} {exc.status}: {exc.message}")
+                if exc.code not in _TRANSIENT_STATUS or attempt == MAX_ATTEMPTS:
+                    raise error from exc
+            except httpx.TransportError as exc:
+                error = LLMProviderError(f"Falha de rede ao chamar o Gemini: {exc!r}")
+                if attempt == MAX_ATTEMPTS:
+                    raise error from exc
+            except httpx.HTTPError as exc:
+                raise LLMProviderError(f"Falha de rede ao chamar o Gemini: {exc!r}") from exc
+            delay = self._retry_base_delay * 2 ** (attempt - 1)
+            logger.warning(
+                "%s (tentativa %d/%d); nova tentativa em %.1fs", error, attempt, MAX_ATTEMPTS, delay
             )
-        except errors.APIError as exc:
-            raise LLMProviderError(f"Gemini API {exc.code} {exc.status}: {exc.message}") from exc
-        except httpx.HTTPError as exc:
-            raise LLMProviderError(f"Falha de rede ao chamar o Gemini: {exc!r}") from exc
+            await self._sleep(delay)
 
         # `text` é None quando não há candidatos (ex.: bloqueio de segurança)
         if not response.text:
