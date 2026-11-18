@@ -121,6 +121,49 @@ async def test_maps_search_criteria_to_jobspy_arguments():
     }
 
 
+@pytest.mark.parametrize("location", ["Brasil", "brasil", "Brazil", " BRASIL. "])
+async def test_country_only_location_is_sent_as_the_jobspy_country(location):
+    scraper = FakeScraper({"linkedin": pd.DataFrame()})
+
+    await make_adapter(scraper).search(criteria(sites=(JobSite.LINKEDIN,), location=location))
+
+    assert scraper.calls[0]["location"] == "Brazil"
+    assert scraper.calls[0]["country_indeed"] == "brazil"
+
+
+async def test_country_only_search_also_targets_indeed_in_that_country():
+    scraper = FakeScraper({"indeed": pd.DataFrame()})
+
+    await make_adapter(scraper).search(criteria(sites=(JobSite.INDEED,), location="Alemanha"))
+
+    assert (scraper.calls[0]["location"], scraper.calls[0]["country_indeed"]) == ("Germany", "germany")
+
+
+async def test_country_only_search_drops_jobs_declared_in_other_countries():
+    rows = [
+        jobspy_row(id="1", job_url="https://li/1", location="São Paulo, SP, BR"),
+        jobspy_row(id="2", job_url="https://li/2", location="Lisbon, Lisbon, Portugal"),
+        jobspy_row(id="3", job_url="https://li/3", location="Brazil"),
+        jobspy_row(id="4", job_url="https://li/4", location="Recife, PE"),
+        jobspy_row(id="5", job_url="https://li/5", location="Berlin, Germany"),
+    ]
+    scraper = FakeScraper({"linkedin": pd.DataFrame(rows)})
+
+    jobs = await make_adapter(scraper).search(criteria(sites=(JobSite.LINKEDIN,), location="Brasil"))
+
+    assert [j.external_id for j in jobs] == ["1", "3", "4"]
+
+
+async def test_city_location_is_passed_through_without_country_filter():
+    rows = [jobspy_row(location="Lisbon, Lisbon, Portugal")]
+    scraper = FakeScraper({"linkedin": pd.DataFrame(rows)})
+
+    jobs = await make_adapter(scraper).search(criteria(sites=(JobSite.LINKEDIN,), location="São Paulo, Brasil"))
+
+    assert scraper.calls[0]["location"] == "São Paulo, Brasil"
+    assert len(jobs) == 1
+
+
 async def test_normalizes_a_complete_row_into_job_posting():
     row = jobspy_row(
         min_amount=8000.0,

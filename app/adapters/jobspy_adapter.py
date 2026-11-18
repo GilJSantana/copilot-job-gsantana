@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 from jobspy import scrape_jobs
+from jobspy.model import Country
 
 from app.adapters.rate_limit import RandomDelayThrottle
 from app.domain.exceptions import JobSourceError
@@ -20,6 +21,7 @@ from app.domain.models import (
     SalaryRange,
     WorkMode,
     detect_work_mode,
+    normalize_text,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,30 +52,41 @@ class JobSpyAdapter(IJobRepository):
         jobs: list[JobPosting] = []
         failures: dict[JobSite, Exception] = {}
 
+        country = resolve_country(criteria.location)
         for site in criteria.sites:
             try:
                 async with self._throttle:
-                    frame = await asyncio.to_thread(self._scrape, **self._kwargs(site, criteria))
+                    frame = await asyncio.to_thread(
+                        self._scrape, **self._kwargs(site, criteria, country)
+                    )
             except Exception as exc:  # o JobSpy não tem hierarquia de erros própria
                 logger.warning("Falha ao buscar vagas em %s: %r", site, exc)
                 failures[site] = exc
                 continue
-            jobs.extend(self._to_postings(frame, site))
+            postings = self._to_postings(frame, site)
+            if country:
+                # o LinkedIn completa a busca com vagas de outros países
+                postings = [p for p in postings if _in_country(p.location, country)]
+            jobs.extend(postings)
 
         if failures and len(failures) == len(criteria.sites):
             detail = "; ".join(f"{site}: {exc!r}" for site, exc in failures.items())
             raise JobSourceError(f"Todas as fontes falharam — {detail}")
         return jobs
 
-    def _kwargs(self, site: JobSite, criteria: JobSearchCriteria) -> dict[str, Any]:
+    def _kwargs(
+        self, site: JobSite, criteria: JobSearchCriteria, country: Country | None
+    ) -> dict[str, Any]:
+        # só o país ("Brasil"): o nome em inglês é o que o LinkedIn reconhece
+        location = _country_name(country).title() if country else criteria.location or None
         return {
             "site_name": [site.value],
             "search_term": criteria.search_term,
-            "location": criteria.location or None,
+            "location": location,
             "is_remote": criteria.remote_only,
             "results_wanted": criteria.results_wanted,
             "hours_old": criteria.hours_old,
-            "country_indeed": criteria.country,
+            "country_indeed": _country_name(country) if country else criteria.country,
             "linkedin_fetch_description": self._linkedin_fetch_description,
             "description_format": "markdown",
             "verbose": 1,  # só avisos e erros (o JobSpy usa handlers próprios)
@@ -109,6 +122,63 @@ class JobSpyAdapter(IJobRepository):
             skills=tuple(s.strip() for s in str(row.get("skills") or "").split(",") if s.strip()),
             external_id=row.get("id"),
         )
+
+
+# nomes em português que diferem dos do JobSpy (que só conhece os em inglês)
+_PT_COUNTRY_NAMES = {
+    "brasil": "brazil",
+    "alemanha": "germany",
+    "espanha": "spain",
+    "estados unidos": "usa",
+    "eua": "usa",
+    "reino unido": "uk",
+    "inglaterra": "uk",
+    "franca": "france",
+    "holanda": "netherlands",
+    "paises baixos": "netherlands",
+    "italia": "italy",
+    "irlanda": "ireland",
+    "canada": "canada",
+    "mexico": "mexico",
+    "japao": "japan",
+    "suica": "switzerland",
+    "suecia": "sweden",
+    "belgica": "belgium",
+    "polonia": "poland",
+    "dinamarca": "denmark",
+    "noruega": "norway",
+    "finlandia": "finland",
+    "nova zelandia": "new zealand",
+    "africa do sul": "south africa",
+    "india": "india",
+    "colombia": "colombia",
+    "uruguai": "uruguay",
+}
+
+
+def resolve_country(location: str) -> Country | None:
+    """O país do JobSpy quando a localização é só um país ("Brasil", "Portugal").
+
+    Cidades, estados e códigos ("SP", "PE") não contam: "Recife, PE" não é o Peru.
+    """
+    name = normalize_text(location).strip(" .")
+    name = _PT_COUNTRY_NAMES.get(name, name)
+    for country in Country:
+        if country in (Country.US_CANADA, Country.WORLDWIDE):
+            continue
+        if name in country.value[0].split(","):
+            return country
+    return None
+
+
+def _country_name(country: Country) -> str:
+    return country.value[0].split(",")[0]
+
+
+def _in_country(location: str, country: Country) -> bool:
+    """Descarta só vagas que declaram outro país; sem país no texto, mantém."""
+    declared = resolve_country(location.rsplit(",", 1)[-1])
+    return declared is None or declared is country
 
 
 def _clean(value: Any) -> Any:
