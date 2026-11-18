@@ -20,6 +20,7 @@ def test_search_page_renders_components_and_handlers(client):
     assert 'data-action="copy-pitch"' in html
     assert "data-loading-template" in html
     assert "/static/js/job_search.js" in html
+    assert "data-clear-filters" in html  # "Limpar Filtros" volta para "/" sem filtros
 
 
 def test_advanced_filters_open_when_values_differ_from_defaults(client):
@@ -35,6 +36,7 @@ def test_search_script_is_served(client):
 
     assert response.status_code == 200
     assert "onOptimizeCV" in response.text
+    assert "bindFilterSync" in response.text
 
 
 def test_preview_is_disabled_by_default(client):

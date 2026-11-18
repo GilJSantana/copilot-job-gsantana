@@ -4,15 +4,26 @@
   "use strict";
 
   const SORT_KEY = "jobs.sort";
+  const FILTERS_KEY = "jobs.filters";
+  const FILTER_FIELDS = ["search_term", "location"];
 
-  const storage = {
-    get(key) {
-      try { return localStorage.getItem(key); } catch { return null; }
-    },
-    set(key, value) {
-      try { localStorage.setItem(key, value); } catch { /* modo privado: só não lembra */ }
-    },
-  };
+  function webStorage(backend) {
+    return {
+      get(key) {
+        try { return backend().getItem(key); } catch { return null; }
+      },
+      set(key, value) {
+        try { backend().setItem(key, value); } catch { /* modo privado: só não lembra */ }
+      },
+      remove(key) {
+        try { backend().removeItem(key); } catch { /* idem */ }
+      },
+    };
+  }
+
+  const storage = webStorage(() => localStorage);
+  // filtros da busca: sobrevivem à ida e volta dos detalhes, não a uma aba nova
+  const session = webStorage(() => sessionStorage);
 
   async function apiRequest(method, path, body) {
     const response = await fetch(path, {
@@ -117,6 +128,39 @@
     },
   };
 
+  // Cargo e Localização espelhados na URL (?search_term=…&location=…) e na sessão.
+  // URL sem filtros (voltar dos detalhes, menu, paginação) repovoa a partir da sessão.
+  function bindFilterSync(form) {
+    const url = new URL(window.location.href);
+    url.pathname = "/";  // o POST /search também passa a apontar para a listagem
+    if (!FILTER_FIELDS.some((name) => url.searchParams.has(name))) {
+      new URLSearchParams(session.get(FILTERS_KEY) || "").forEach((value, name) => url.searchParams.set(name, value));
+    }
+    FILTER_FIELDS.forEach((name) => {
+      const input = form.elements[name];
+      if (input && !input.value && url.searchParams.has(name)) input.value = url.searchParams.get(name);
+    });
+
+    const sync = () => {
+      const filters = new URLSearchParams();
+      FILTER_FIELDS.forEach((name) => {
+        const value = (form.elements[name]?.value || "").trim();
+        if (value) filters.set(name, value);
+        url.searchParams.delete(name);
+      });
+      filters.forEach((value, name) => url.searchParams.set(name, value));
+      if (filters.size) session.set(FILTERS_KEY, filters.toString());
+      else session.remove(FILTERS_KEY);
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    };
+    sync();
+    FILTER_FIELDS.forEach((name) => form.elements[name]?.addEventListener("input", sync));
+
+    document.querySelectorAll("[data-clear-filters]").forEach((link) => {
+      link.addEventListener("click", () => session.remove(FILTERS_KEY));  // o link segue para "/"
+    });
+  }
+
   function bindNumericSteppers(root) {
     root.querySelectorAll("[data-numeric]").forEach((group) => {
       const input = group.querySelector("input");
@@ -146,6 +190,7 @@
     if (form) {
       form.addEventListener("submit", () => CopilotJobSearch.onSearch(form));
       bindNumericSteppers(form);
+      bindFilterSync(form);
     }
 
     const select = document.querySelector("[data-sort]");
