@@ -14,6 +14,7 @@ from app.domain.exceptions import (
     SourcesDisabledError,
 )
 from app.domain.models import JobSite, OutreachChannel, OutreachLanguage
+from app.services.match_engine import MatchEngine
 from app.web.container import Container
 from app.web.dependencies import (
     ContainerDep,
@@ -174,7 +175,12 @@ def build_router(templates: Jinja2Templates, *, enable_preview: bool = False) ->
             request,
             "job_detail.html",
             {
-                "job": JobDetailOut.from_domain(job, match=match, profile=profile),
+                "job": JobDetailOut.from_domain(
+                    job,
+                    match=match,
+                    profile=profile,
+                    skill_gap=MatchEngine.skill_gap(profile, job) if profile else None,
+                ),
                 "profile_error": profile_error,
                 "drafts": [OutreachOut.from_domain(d, profile) for d in drafts],
                 "channels": list(OutreachChannel),

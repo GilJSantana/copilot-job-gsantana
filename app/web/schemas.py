@@ -16,6 +16,7 @@ from app.domain.models import (
     OutreachChannel,
     OutreachLanguage,
     OutreachMessage,
+    SkillGap,
     WorkMode,
 )
 
@@ -82,6 +83,20 @@ class MatchOut(BaseModel):
         )
 
 
+class SkillGapOut(BaseModel):
+    matched: list[str]
+    missing: list[str]
+    profile_only: list[str]
+
+    @classmethod
+    def from_domain(cls, gap: SkillGap) -> "SkillGapOut":
+        return cls(
+            matched=list(gap.matched),
+            missing=list(gap.missing),
+            profile_only=list(gap.profile_only),
+        )
+
+
 class JobSummaryOut(BaseModel):
     key: str
     title: str
@@ -112,6 +127,9 @@ class JobSummaryOut(BaseModel):
 class JobDetailOut(JobSummaryOut):
     description: str
     skills: list[str]
+    # skills do perfil, para comparar com as da vaga; None sem perfil carregado
+    profile_skills: list[str] | None = None
+    skill_gap: SkillGapOut | None = None
 
     @classmethod
     def from_domain(
@@ -121,11 +139,14 @@ class JobDetailOut(JobSummaryOut):
         match: MatchResult | None = None,
         profile: CandidateProfile | None = None,
         is_new: bool = False,
+        skill_gap: SkillGap | None = None,
     ) -> "JobDetailOut":
         return cls(
             **_job_fields(job, match, profile, is_new),
             description=job.description,
             skills=list(job.skills),
+            profile_skills=list(profile.skills) if profile else None,
+            skill_gap=SkillGapOut.from_domain(skill_gap) if skill_gap else None,
         )
 
 

@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import Response
 
+from app.services.match_engine import MatchEngine
 from app.web.dependencies import (
     ContainerDep,
     career_history_or_none,
@@ -82,7 +83,13 @@ async def list_jobs(
 @router.get("/jobs/{key}")
 async def get_job(job: JobDep, container: ContainerDep) -> JobDetailOut:
     match = await container.match_store.get(job.dedup_key)
-    return JobDetailOut.from_domain(job, match=match, profile=await profile_or_none(container))
+    profile = await profile_or_none(container)
+    return JobDetailOut.from_domain(
+        job,
+        match=match,
+        profile=profile,
+        skill_gap=MatchEngine.skill_gap(profile, job) if profile else None,
+    )
 
 
 @router.post("/jobs/{key}/match")

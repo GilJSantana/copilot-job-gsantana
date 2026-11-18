@@ -123,6 +123,16 @@ def test_job_detail_includes_description(client):
     assert body["match"] is None
 
 
+def test_job_detail_compares_profile_and_job_skills(client):
+    key = search(client).json()["jobs"][0]["key"]
+
+    body = client.get(f"/api/jobs/{key}").json()
+
+    assert {"Python", "FastAPI", "Docker"} <= set(body["profile_skills"])
+    assert {"Python", "FastAPI", "Docker"} <= set(body["skill_gap"]["matched"])
+    assert body["skill_gap"]["missing"] == []
+
+
 def test_unknown_job_is_404(client):
     response = client.get("/api/jobs/0000000000000000")
 

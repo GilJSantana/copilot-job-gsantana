@@ -332,6 +332,18 @@ class LLMAssessment:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class SkillGap:
+    """Comparação determinística entre as skills do perfil e as da vaga."""
+
+    matched: tuple[str, ...] = ()  # skills do perfil citadas na vaga
+    missing: tuple[str, ...] = ()  # skills listadas pela vaga que o perfil não cobre
+    profile_only: tuple[str, ...] = ()  # skills do perfil que a vaga não cita
+
+    def __post_init__(self) -> None:
+        _as_tuple(self, "matched", "missing", "profile_only")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MatchResult:
     """Resultado final do match perfil x vaga."""
 

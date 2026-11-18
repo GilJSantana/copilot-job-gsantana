@@ -108,6 +108,36 @@
   {% endif %}
 {% endcall %}
 
+{% set gap = job.skill_gap %}
+{% if gap %}
+  {% call section("skills") %}
+    {{ heading("Match de Competências") }}
+    {{ hint("Skills do seu perfil comparadas com as da vaga.") }}
+    <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-body dark:text-bodydark" aria-hidden="true">
+      <span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-meta-3"></span>Atendidas</span>
+      <span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-meta-1"></span>Faltantes</span>
+      <span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-gray-2 dark:bg-meta-4"></span>Só no perfil</span>
+    </div>
+    <div class="mt-4 grid gap-5 md:grid-cols-3">
+      {% for title, items, tone, empty in [
+        ("Atendidas (" ~ gap.matched|length ~ ")", gap.matched, "success", "Nenhuma skill do perfil citada na vaga."),
+        ("Faltantes (" ~ gap.missing|length ~ ")", gap.missing, "danger",
+         "Nenhuma lacuna nas skills listadas pela vaga." if job.skills else "A vaga não lista skills estruturadas — veja as lacunas da análise acima."),
+        ("Só no perfil (" ~ gap.profile_only|length ~ ")", gap.profile_only, "neutral", "—"),
+      ] %}
+        <div>
+          {{ subheading(title) }}
+          {% if items %}
+            <ul class="mt-2 flex flex-wrap gap-1.5">{% for item in items %}<li>{{ badge(item, tone) }}</li>{% endfor %}</ul>
+          {% else %}
+            <p class="mt-2 text-sm text-body dark:text-bodydark">{{ empty }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endcall %}
+{% endif %}
+
 {% call section("cv") %}
   {{ heading("Currículo para esta vaga") }}
   {{ hint("PDF otimizado para ATS a partir do seu histórico profissional. Nada fora do histórico entra no currículo; revise antes de enviar.") }}
@@ -207,7 +237,7 @@
 
 {% call section() %}
   {{ heading("Descrição") }}
-  {% if job.skills %}
+  {% if job.skills and not gap %}
     <div class="mt-3 flex flex-wrap gap-1.5">{% for skill in job.skills %}{{ badge(skill) }}{% endfor %}</div>
   {% endif %}
   {# Markdown da fonte limpo em blocos; o texto segue escapado pelo Jinja #}

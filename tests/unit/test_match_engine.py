@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from app.domain.exceptions import LLMProviderError
@@ -167,3 +169,17 @@ async def test_sends_profile_and_job_context_to_llm(profile, job):
 def test_rejects_invalid_weights(keyword, semantic):
     with pytest.raises(ValueError):
         MatchWeights(keyword=keyword, semantic=semantic)
+
+
+def test_skill_gap_splits_matched_missing_and_profile_only(profile, job):
+    job = replace(job, skills=("Python 3", "AWS", "docker"))
+
+    gap = MatchEngine.skill_gap(profile, job)
+
+    assert gap.matched == ("Python", "FastAPI", "Docker")
+    assert gap.missing == ("AWS",)  # "Python 3" é coberta por "Python"
+    assert gap.profile_only == ("Kubernetes",)
+
+
+def test_skill_gap_without_structured_job_skills_has_no_missing(profile, job):
+    assert MatchEngine.skill_gap(profile, job).missing == ()

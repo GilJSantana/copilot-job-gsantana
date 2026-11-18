@@ -24,6 +24,7 @@ from app.domain.models import (
     LLMAssessment,
     MatchResult,
     PromptName,
+    SkillGap,
     normalize_text,
 )
 from app.services.prompts import resolve_prompt
@@ -95,10 +96,25 @@ class MatchEngine:
     def matched_skills(profile: CandidateProfile, job: JobPosting) -> tuple[str, ...]:
         """Skills do perfil presentes na vaga (case/acento-insensitive, palavra inteira)."""
         text = normalize_text(job.searchable_text)
-        return tuple(
-            skill
-            for skill in profile.skills
-            if re.search(rf"(?<!\w){re.escape(normalize_text(skill))}(?!\w)", text)
+        return tuple(skill for skill in profile.skills if _mentions(text, skill))
+
+    @classmethod
+    def skill_gap(cls, profile: CandidateProfile, job: JobPosting) -> SkillGap:
+        """Skills atendidas, faltantes (das listadas pela vaga) e só do perfil."""
+        matched = cls.matched_skills(profile, job)
+        missing = tuple(
+            required
+            for required in job.skills
+            if not any(
+                _mentions(normalize_text(required), own)
+                or _mentions(normalize_text(own), required)
+                for own in profile.skills
+            )
+        )
+        return SkillGap(
+            matched=matched,
+            missing=missing,
+            profile_only=tuple(s for s in profile.skills if s not in matched),
         )
 
     async def _assess(self, profile: CandidateProfile, job: JobPosting) -> LLMAssessment | None:
@@ -157,3 +173,8 @@ class MatchEngine:
             strengths=str_list("strengths"),
             gaps=str_list("gaps"),
         )
+
+
+def _mentions(normalized_text: str, skill: str) -> bool:
+    """`skill` aparece como palavra inteira no texto já normalizado."""
+    return bool(re.search(rf"(?<!\w){re.escape(normalize_text(skill))}(?!\w)", normalized_text))

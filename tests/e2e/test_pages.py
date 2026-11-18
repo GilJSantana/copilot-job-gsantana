@@ -107,6 +107,15 @@ def test_match_form_is_protected_against_other_origins(client, llm):
     assert llm.calls == []
 
 
+def test_job_detail_shows_skill_gap_analysis(client):
+    submit_search(client)
+
+    page = client.get(f"/jobs/{first_job_key(client)}").text
+
+    assert "Match de Competências" in page
+    assert "Atendidas (" in page and "Faltantes (" in page
+
+
 def test_job_detail_without_profile_explains_and_hides_button(blank_client):
     submit_search(blank_client)
 
@@ -115,6 +124,7 @@ def test_job_detail_without_profile_explains_and_hides_button(blank_client):
     assert response.status_code == 200
     assert "/settings/profile" in response.text
     assert "Analisar match" not in response.text
+    assert "Match de Competências" not in response.text
 
 
 def test_unknown_job_renders_html_404(client):
