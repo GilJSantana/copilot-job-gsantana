@@ -79,6 +79,7 @@ class MatchResultRow(Base):
     rationale: Mapped[str] = mapped_column(Text, default="")
     provider: Mapped[str] = mapped_column(String(100), default="")
     profile_fingerprint: Mapped[str] = mapped_column(String(16), default="", index=True)
+    job_skills: Mapped[list[str]] = mapped_column(JSON, default=list, server_default=text("'[]'"))
     evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

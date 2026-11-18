@@ -18,7 +18,7 @@ JOB = JobPosting(
     source=JobSite.LINKEDIN,
     description="Python e Docker.",
 )
-LLM_OK = {"score": 90, "rationale": "ok", "strengths": [], "gaps": []}
+LLM_OK = {"score": 90, "rationale": "ok", "strengths": [], "gaps": [], "job_skills": ["Python"]}
 
 
 @pytest.fixture
@@ -120,3 +120,14 @@ def test_fingerprint_is_deterministic():
 )
 def test_fingerprint_changes_with_any_field(change):
     assert replace(PROFILE, **change).fingerprint != PROFILE.fingerprint
+
+
+async def test_recomputes_match_saved_without_job_skills(job_store):
+    llm = MockLLMAdapter(LLM_OK)
+    service, match_store = make_service(job_store, llm)
+    await match_store.save(replace(await service.match(PROFILE, JOB), job_skills=()))
+
+    result = await service.match(PROFILE, JOB)
+
+    assert len(llm.calls) == 2
+    assert result.job_skills == ("Python",)

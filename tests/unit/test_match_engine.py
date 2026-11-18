@@ -110,6 +110,7 @@ async def test_falls_back_to_keyword_score_when_llm_fails(profile, job):
         {"score": float("nan")},
         llm_response(80, gaps="Kubernetes"),
         llm_response(80, rationale=42),
+        llm_response(80, job_skills="Python, SQL"),
     ],
 )
 async def test_falls_back_when_llm_breaks_the_contract(profile, job, payload):
@@ -171,15 +172,46 @@ def test_rejects_invalid_weights(keyword, semantic):
         MatchWeights(keyword=keyword, semantic=semantic)
 
 
-def test_skill_gap_splits_matched_missing_and_profile_only(profile, job):
+def test_skill_gap_splits_matched_missing_and_extra(profile, job):
     job = replace(job, skills=("Python 3", "AWS", "docker"))
 
     gap = MatchEngine.skill_gap(profile, job)
 
-    assert gap.matched == ("Python", "FastAPI", "Docker")
-    assert gap.missing == ("AWS",)  # "Python 3" é coberta por "Python"
-    assert gap.profile_only == ("Kubernetes",)
+    assert gap.job_skills == ("Python 3", "AWS", "docker")
+    assert gap.matched_skills == ("Python", "FastAPI", "Docker")
+    assert gap.missing_skills == ("AWS",)  # "Python 3" é coberta por "Python"
+    assert gap.extra_skills == ("Kubernetes",)
 
 
-def test_skill_gap_without_structured_job_skills_has_no_missing(profile, job):
-    assert MatchEngine.skill_gap(profile, job).missing == ()
+async def test_llm_extracts_job_skills_that_feed_the_skill_gap(profile, job):
+    engine = MatchEngine(MockLLMAdapter(llm_response(90, job_skills=[" Python ", "SQL", "ETL", "SQL", ""])))
+
+    result = await engine.evaluate(profile, job)
+    gap = MatchEngine.skill_gap(profile, job, result)
+
+    assert result.job_skills == ("Python", "SQL", "ETL")  # limpas e sem repetição
+    assert gap.job_skills == result.job_skills
+    assert gap.missing_skills == ("SQL", "ETL")
+
+
+async def test_llm_skills_take_precedence_over_source_skills(profile, job):
+    job = replace(job, skills=("AWS",))
+    result = await MatchEngine(MockLLMAdapter(llm_response(90, job_skills=["Linux"]))).evaluate(profile, job)
+
+    assert MatchEngine.skill_gap(profile, job, result).missing_skills == ("Linux",)
+
+
+async def test_missing_job_skills_in_llm_answer_is_tolerated(profile, job):
+    result = await MatchEngine(MockLLMAdapter(llm_response(90))).evaluate(profile, job)
+
+    assert result.used_llm
+    assert result.job_skills == ()
+    assert MatchEngine.skill_gap(profile, job, result).missing_skills == ()
+
+
+async def test_prompt_requires_job_skills(profile, job):
+    llm = MockLLMAdapter(llm_response(90))
+
+    await MatchEngine(llm).evaluate(profile, job)
+
+    assert '"job_skills"' in llm.calls[0]["system_prompt"]

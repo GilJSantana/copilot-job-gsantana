@@ -40,6 +40,7 @@ class SqlAlchemyMatchResultStore(IMatchResultStore):
             "rationale": result.rationale,
             "provider": result.provider,
             "profile_fingerprint": result.profile_fingerprint,
+            "job_skills": list(result.job_skills),
             "evaluated_at": self._clock(),
         }
         # Upsert nativo: substituir o match é uma operação atômica, sem corrida
@@ -81,4 +82,5 @@ def _to_domain(row: MatchResultRow) -> MatchResult:
         rationale=row.rationale,
         provider=row.provider,
         profile_fingerprint=row.profile_fingerprint,
+        job_skills=tuple(row.job_skills),
     )

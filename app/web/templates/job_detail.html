@@ -108,7 +108,7 @@
   {% endif %}
 {% endcall %}
 
-{% set gap = job.skill_gap %}
+{% set gap = job.profile_skills is not none %}
 {% if gap %}
   {% call section("skills") %}
     {{ heading("Match de Competências") }}
@@ -120,10 +120,12 @@
     </div>
     <div class="mt-4 grid gap-5 md:grid-cols-3">
       {% for title, items, tone, empty in [
-        ("Atendidas (" ~ gap.matched|length ~ ")", gap.matched, "success", "Nenhuma skill do perfil citada na vaga."),
-        ("Faltantes (" ~ gap.missing|length ~ ")", gap.missing, "danger",
-         "Nenhuma lacuna nas skills listadas pela vaga." if job.skills else "A vaga não lista skills estruturadas — veja as lacunas da análise acima."),
-        ("Só no perfil (" ~ gap.profile_only|length ~ ")", gap.profile_only, "neutral", "—"),
+        ("Atendidas (" ~ job.matched_skills|length ~ ")", job.matched_skills, "success", "Nenhuma skill do perfil citada na vaga."),
+        ("Faltantes (" ~ job.missing_skills|length ~ ")", job.missing_skills, "danger",
+         "O perfil cobre todas as skills exigidas pela vaga." if job.job_skills
+         else ("Reanalise o match para extrair as skills exigidas pela vaga." if job.match
+               else "Analise o match para extrair as skills exigidas pela vaga.")),
+        ("Só no perfil (" ~ job.extra_skills|length ~ ")", job.extra_skills, "neutral", "—"),
       ] %}
         <div>
           {{ subheading(title) }}

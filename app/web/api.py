@@ -88,7 +88,7 @@ async def get_job(job: JobDep, container: ContainerDep) -> JobDetailOut:
         job,
         match=match,
         profile=profile,
-        skill_gap=MatchEngine.skill_gap(profile, job) if profile else None,
+        skill_gap=MatchEngine.skill_gap(profile, job, match) if profile else None,
     )
 
 

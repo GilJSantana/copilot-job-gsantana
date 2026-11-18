@@ -114,6 +114,18 @@ def test_job_detail_shows_skill_gap_analysis(client):
 
     assert "Match de Competências" in page
     assert "Atendidas (" in page and "Faltantes (" in page
+    assert "Analise o match para extrair as skills" in page
+
+
+def test_job_detail_shows_missing_skills_as_red_badges_after_match(client):
+    submit_search(client)
+    key = first_job_key(client)
+    client.post(f"/jobs/{key}/match", headers=SAME_ORIGIN)
+
+    page = client.get(f"/jobs/{key}").text
+
+    assert "Faltantes (1)" in page
+    assert "text-meta-1\">Kubernetes</span>" in page
 
 
 def test_job_detail_without_profile_explains_and_hides_button(blank_client):

@@ -83,20 +83,6 @@ class MatchOut(BaseModel):
         )
 
 
-class SkillGapOut(BaseModel):
-    matched: list[str]
-    missing: list[str]
-    profile_only: list[str]
-
-    @classmethod
-    def from_domain(cls, gap: SkillGap) -> "SkillGapOut":
-        return cls(
-            matched=list(gap.matched),
-            missing=list(gap.missing),
-            profile_only=list(gap.profile_only),
-        )
-
-
 class JobSummaryOut(BaseModel):
     key: str
     title: str
@@ -127,9 +113,12 @@ class JobSummaryOut(BaseModel):
 class JobDetailOut(JobSummaryOut):
     description: str
     skills: list[str]
-    # skills do perfil, para comparar com as da vaga; None sem perfil carregado
+    # Match de Competências; None sem perfil carregado para comparar
     profile_skills: list[str] | None = None
-    skill_gap: SkillGapOut | None = None
+    job_skills: list[str] | None = None  # extraídas pelo LLM (ou estruturadas pela fonte)
+    matched_skills: list[str] | None = None  # Atendidas
+    missing_skills: list[str] | None = None  # Faltantes
+    extra_skills: list[str] | None = None  # Só no perfil
 
     @classmethod
     def from_domain(
@@ -146,7 +135,16 @@ class JobDetailOut(JobSummaryOut):
             description=job.description,
             skills=list(job.skills),
             profile_skills=list(profile.skills) if profile else None,
-            skill_gap=SkillGapOut.from_domain(skill_gap) if skill_gap else None,
+            **(
+                {
+                    "job_skills": list(skill_gap.job_skills),
+                    "matched_skills": list(skill_gap.matched_skills),
+                    "missing_skills": list(skill_gap.missing_skills),
+                    "extra_skills": list(skill_gap.extra_skills),
+                }
+                if skill_gap
+                else {}
+            ),
         )
 
 

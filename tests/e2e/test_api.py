@@ -129,8 +129,19 @@ def test_job_detail_compares_profile_and_job_skills(client):
     body = client.get(f"/api/jobs/{key}").json()
 
     assert {"Python", "FastAPI", "Docker"} <= set(body["profile_skills"])
-    assert {"Python", "FastAPI", "Docker"} <= set(body["skill_gap"]["matched"])
-    assert body["skill_gap"]["missing"] == []
+    assert {"Python", "FastAPI", "Docker"} <= set(body["matched_skills"])
+    assert body["job_skills"] == body["missing_skills"] == []  # sem match, nada extraído
+
+
+def test_job_detail_lists_missing_skills_extracted_by_the_llm(client):
+    key = search(client).json()["jobs"][0]["key"]
+    client.post(f"/api/jobs/{key}/match")
+
+    body = client.get(f"/api/jobs/{key}").json()
+
+    assert body["job_skills"] == ["Python", "FastAPI", "Docker", "Kubernetes"]
+    assert body["missing_skills"] == ["Kubernetes"]
+    assert "Python" not in body["extra_skills"]
 
 
 def test_unknown_job_is_404(client):

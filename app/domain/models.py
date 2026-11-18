@@ -324,23 +324,26 @@ class LLMAssessment:
     rationale: str
     strengths: tuple[str, ...] = ()
     gaps: tuple[str, ...] = ()
+    # hard skills exigidas pela vaga, extraídas da descrição
+    job_skills: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not 0 <= self.score <= 100:
             raise ValueError("score deve estar entre 0 e 100")
-        _as_tuple(self, "strengths", "gaps")
+        _as_tuple(self, "strengths", "gaps", "job_skills")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SkillGap:
     """Comparação determinística entre as skills do perfil e as da vaga."""
 
-    matched: tuple[str, ...] = ()  # skills do perfil citadas na vaga
-    missing: tuple[str, ...] = ()  # skills listadas pela vaga que o perfil não cobre
-    profile_only: tuple[str, ...] = ()  # skills do perfil que a vaga não cita
+    job_skills: tuple[str, ...] = ()  # skills exigidas pela vaga
+    matched_skills: tuple[str, ...] = ()  # skills do perfil citadas na vaga
+    missing_skills: tuple[str, ...] = ()  # skills da vaga que o perfil não cobre
+    extra_skills: tuple[str, ...] = ()  # skills do perfil que a vaga não cita
 
     def __post_init__(self) -> None:
-        _as_tuple(self, "matched", "missing", "profile_only")
+        _as_tuple(self, "job_skills", "matched_skills", "missing_skills", "extra_skills")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -357,12 +360,14 @@ class MatchResult:
     rationale: str = ""
     provider: str = ""
     profile_fingerprint: str = ""
+    # skills exigidas pela vaga segundo o LLM; vazio em matches sem LLM
+    job_skills: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name in ("score", "keyword_score"):
             if not 0 <= getattr(self, name) <= 100:
                 raise ValueError(f"{name} deve estar entre 0 e 100")
-        _as_tuple(self, "matched_skills", "strengths", "gaps")
+        _as_tuple(self, "matched_skills", "strengths", "gaps", "job_skills")
 
     @property
     def verdict(self) -> MatchVerdict:

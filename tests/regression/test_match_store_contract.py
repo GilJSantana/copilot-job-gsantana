@@ -51,6 +51,7 @@ def match(**overrides: Any) -> MatchResult:
         "rationale": "Boa aderência.",
         "provider": "ollama:llama3.1",
         "profile_fingerprint": "abc123abc123abc1",
+        "job_skills": ("Python", "Docker", "Kubernetes"),
     }
     return MatchResult(**values | overrides)
 

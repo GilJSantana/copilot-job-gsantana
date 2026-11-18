@@ -27,6 +27,7 @@ LLM_RESPONSE = {
     "rationale": "Boa aderência técnica.",
     "strengths": ["Python sólido"],
     "gaps": ["Kubernetes"],
+    "job_skills": ["Python", "FastAPI", "Docker", "Kubernetes"],
 }
 
 

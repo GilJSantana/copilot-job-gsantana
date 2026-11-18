@@ -37,7 +37,10 @@ SYSTEM_PROMPT = (
     "Você é um recrutador técnico sênior. Avalie a aderência entre o candidato "
     "e a vaga. Responda APENAS com um objeto JSON no formato: "
     '{"score": <número 0-100>, "rationale": "<texto curto>", '
-    '"strengths": ["..."], "gaps": ["..."]}'
+    '"strengths": ["..."], "gaps": ["..."], "job_skills": ["..."]}. '
+    "O campo job_skills é obrigatório: liste as hard skills exigidas na descrição "
+    "da vaga, cada uma com seu nome curto e usual, sem repetições "
+    '(ex.: ["Python", "SQL", "ETL", "Linux", "POO", "Docker"]).'
 )
 
 
@@ -90,6 +93,7 @@ class MatchEngine:
             rationale=assessment.rationale if assessment else "",
             provider=self._llm.name,
             profile_fingerprint=profile.fingerprint,
+            job_skills=assessment.job_skills if assessment else (),
         )
 
     @staticmethod
@@ -99,12 +103,22 @@ class MatchEngine:
         return tuple(skill for skill in profile.skills if _mentions(text, skill))
 
     @classmethod
-    def skill_gap(cls, profile: CandidateProfile, job: JobPosting) -> SkillGap:
-        """Skills atendidas, faltantes (das listadas pela vaga) e só do perfil."""
+    def skill_gap(
+        cls,
+        profile: CandidateProfile,
+        job: JobPosting,
+        match: MatchResult | None = None,
+    ) -> SkillGap:
+        """Skills atendidas, faltantes e só do perfil.
+
+        As skills da vaga vêm do LLM (salvas no match); sem elas, das que a
+        fonte da vaga estruturou. "Python" no perfil cobre "Python 3" na vaga.
+        """
+        job_skills = (match.job_skills if match else ()) or job.skills
         matched = cls.matched_skills(profile, job)
         missing = tuple(
             required
-            for required in job.skills
+            for required in job_skills
             if not any(
                 _mentions(normalize_text(required), own)
                 or _mentions(normalize_text(own), required)
@@ -112,9 +126,10 @@ class MatchEngine:
             )
         )
         return SkillGap(
-            matched=matched,
-            missing=missing,
-            profile_only=tuple(s for s in profile.skills if s not in matched),
+            job_skills=job_skills,
+            matched_skills=matched,
+            missing_skills=missing,
+            extra_skills=tuple(s for s in profile.skills if s not in matched),
         )
 
     async def _assess(self, profile: CandidateProfile, job: JobPosting) -> LLMAssessment | None:
@@ -167,11 +182,16 @@ class MatchEngine:
         if not isinstance(rationale, str):
             raise LLMResponseFormatError("'rationale' deve ser string")
 
+        # tolerante à ausência: um prompt customizado no painel pode não pedir job_skills
+        job_skills = tuple(
+            dict.fromkeys(skill.strip() for skill in str_list("job_skills") if skill.strip())
+        )
         return LLMAssessment(
             score=min(max(float(raw_score), 0.0), 100.0),
             rationale=rationale,
             strengths=str_list("strengths"),
             gaps=str_list("gaps"),
+            job_skills=job_skills,
         )
 
 

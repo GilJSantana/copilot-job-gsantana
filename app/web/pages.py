@@ -179,7 +179,7 @@ def build_router(templates: Jinja2Templates, *, enable_preview: bool = False) ->
                     job,
                     match=match,
                     profile=profile,
-                    skill_gap=MatchEngine.skill_gap(profile, job) if profile else None,
+                    skill_gap=MatchEngine.skill_gap(profile, job, match) if profile else None,
                 ),
                 "profile_error": profile_error,
                 "drafts": [OutreachOut.from_domain(d, profile) for d in drafts],
